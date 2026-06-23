@@ -3,7 +3,15 @@
  * Database Configuration and Helpers (PHP/PDO Version)
  */
 
-define('DB_PATH', __DIR__ . DIRECTORY_SEPARATOR . 'hospital_portal.db');
+// Vercel Serverless Read-Only Filesystem Workaround
+$target_db = '/tmp/hospital_portal.db';
+$source_db = __DIR__ . DIRECTORY_SEPARATOR . 'hospital_portal.db';
+
+if (!file_exists($target_db) && file_exists($source_db)) {
+    copy($source_db, $target_db);
+}
+
+define('DB_PATH', file_exists('/tmp') ? $target_db : $source_db);
 
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
