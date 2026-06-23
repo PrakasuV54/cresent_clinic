@@ -1,8 +1,8 @@
 <?php
 
 function upload_to_supabase($file_path, $bucket, $object_key, $mime_type) {
-    $supabase_url = getenv('SUPABASE_URL');
-    $supabase_key = getenv('SUPABASE_SERVICE_ROLE_KEY');
+    $supabase_url = getenv('SUPABASE_URL') ?: 'https://cuunluftyzegeappswmu.supabase.co';
+    $supabase_key = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1dW5sdWZ0eXplZ2VhcHBzd211Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIzNDE1NiwiZXhwIjoyMDk3ODEwMTU2fQ.PLSUwevvdCdLX2cMWnxkfIkraR9O4wFLPQxH9wkJQy0';
 
     if (!$supabase_url || !$supabase_key) {
         // Fallback to local storage if not configured (development mode)
@@ -37,8 +37,8 @@ function upload_to_supabase($file_path, $bucket, $object_key, $mime_type) {
 }
 
 function get_supabase_signed_url($bucket, $object_key, $expires_in = 3600) {
-    $supabase_url = getenv('SUPABASE_URL');
-    $supabase_key = getenv('SUPABASE_SERVICE_ROLE_KEY');
+    $supabase_url = getenv('SUPABASE_URL') ?: 'https://cuunluftyzegeappswmu.supabase.co';
+    $supabase_key = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1dW5sdWZ0eXplZ2VhcHBzd211Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIzNDE1NiwiZXhwIjoyMDk3ODEwMTU2fQ.PLSUwevvdCdLX2cMWnxkfIkraR9O4wFLPQxH9wkJQy0';
 
     if (!$supabase_url || !$supabase_key) {
         // Fallback for local files
@@ -71,8 +71,8 @@ function get_supabase_signed_url($bucket, $object_key, $expires_in = 3600) {
 }
 
 function upload_buffer_to_supabase($buffer, $bucket, $object_key, $mime_type) {
-    $supabase_url = getenv('SUPABASE_URL');
-    $supabase_key = getenv('SUPABASE_SERVICE_ROLE_KEY');
+    $supabase_url = getenv('SUPABASE_URL') ?: 'https://cuunluftyzegeappswmu.supabase.co';
+    $supabase_key = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1dW5sdWZ0eXplZ2VhcHBzd211Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIzNDE1NiwiZXhwIjoyMDk3ODEwMTU2fQ.PLSUwevvdCdLX2cMWnxkfIkraR9O4wFLPQxH9wkJQy0';
 
     if (!$supabase_url || !$supabase_key) {
         // Fallback to local storage if not configured (development mode)
