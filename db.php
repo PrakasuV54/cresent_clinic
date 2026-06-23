@@ -9,8 +9,8 @@ $source_db = __DIR__ . DIRECTORY_SEPARATOR . 'hospital_portal.db';
 require_once __DIR__ . '/supabase_storage.php';
 
 function sync_db_from_supabase($target) {
-    $url = rtrim(getenv('SUPABASE_URL') ?: 'https://cuunluftyzegeappswmu.supabase.co', '/') . "/storage/v1/object/ocr_scans/database.sqlite";
-    $key = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1dW5sdWZ0eXplZ2VhcHBzd211Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjIzNDE1NiwiZXhwIjoyMDk3ODEwMTU2fQ.PLSUwevvdCdLX2cMWnxkfIkraR9O4wFLPQxH9wkJQy0';
+    $url = rtrim(getenv('SUPABASE_URL'), '/') . "/storage/v1/object/ocr_scans/database.sqlite";
+    $key = getenv('SUPABASE_SERVICE_ROLE_KEY');
     if (!$url || !$key) return false;
     
     $ch = curl_init($url);
