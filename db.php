@@ -35,6 +35,10 @@ function sync_db_to_supabase() {
     if (file_exists($target_db)) {
         // Only sync on POST/PUT/DELETE requests where DB might change
         if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] !== 'GET') {
+            try {
+                $conn = get_db();
+                $conn->exec("PRAGMA wal_checkpoint(FULL);");
+            } catch (Exception $e) {}
             upload_to_supabase($target_db, 'ocr_scans', 'database.sqlite', 'application/x-sqlite3');
         }
     }
