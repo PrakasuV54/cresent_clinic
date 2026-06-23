@@ -15,6 +15,13 @@ if (session_status() === PHP_SESSION_NONE) {
     // Serverless cold-start initialization: Seed the ephemeral DB if it's empty
     if (!file_exists(DB_PATH) || filesize(DB_PATH) === 0) {
         init_db();
+    } else {
+        // Also ensure newer tables exist on warm starts
+        try {
+            $check = get_db()->query("SELECT 1 FROM agency_purchases LIMIT 1");
+        } catch (Exception $e) {
+            init_db();
+        }
     }
 
     session_set_save_handler(new DatabaseSessionHandler(), true);
