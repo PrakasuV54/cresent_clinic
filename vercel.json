@@ -1,0 +1,34 @@
+{
+  "functions": {
+    "api/**/*.php": {
+      "runtime": "bref/vercel-php@0.6.0"
+    },
+    "*.php": {
+      "runtime": "bref/vercel-php@0.6.0"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api.php"
+    },
+    {
+      "src": "/reports/(.*)",
+      "dest": "/reports_api.php"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.php"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/backup",
+      "schedule": "30 15 * * *"
+    }
+  ]
+}

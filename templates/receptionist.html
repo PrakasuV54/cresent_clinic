@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptionist — Crescent Clinic and Scans</title>
+
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        <line x1="12" y1="8" x2="12" y2="10" />
+                        <line x1="11" y1="9" x2="13" y2="9" />
+                    </svg>
+                </div>
+                <div>
+                    <h2>Crescent Clinic</h2>
+                    <small>Reception Desk</small>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" onclick="showSection('register')" id="navRegister">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" />
+                        <circle cx="8.5" cy="7" r="4" />
+                        <line x1="20" y1="8" x2="20" y2="14" />
+                        <line x1="23" y1="11" x2="17" y2="11" />
+                    </svg>
+                    Register Patient
+                </button>
+                <button class="nav-item" onclick="showSection('patients')" id="navPatients">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 00-3-3.87" />
+                        <path d="M16 3.13a4 4 0 010 7.75" />
+                    </svg>
+                    Today's Patients
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">R</div>
+                    <div>
+                        <div class="name">{{ display_name }}</div>
+                        <div class="role-label">Receptionist</div>
+                    </div>
+                </div>
+                <a href="/logout" class="btn btn-outline btn-sm btn-full">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Register Section -->
+            <div class="section active" id="sectionRegister">
+                <div class="page-header">
+                    <h1>Register New Patient</h1>
+                    <p>Fill in the patient details and assign to a doctor</p>
+                </div>
+
+                <div class="stats-row" id="statsRow">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                            </svg></div>
+                        <div>
+                            <div class="stat-value" id="statTotal">0</div>
+                            <div class="stat-label">Total Today</div>
+                        </div>
+                    </div>
+                    <div id="dynamicStatsContainer" style="display: contents;">
+                        <!-- JS will inject dynamic doctor stat cards here -->
+                    </div>
+                </div>
+
+                <!-- Fetch by phone -->
+                <div class="content-card" style="margin-bottom: 20px;">
+                    <div class="card-body">
+                        <div style="display:flex;gap:10px;align-items:end;">
+                            <div class="form-group" style="flex:1;margin-bottom:0;">
+                                <label for="fetchPhone">Quick Fetch (Phone or Patient ID)</label>
+                                <input type="text" id="fetchPhone" placeholder="Enter Phone or CCS ID">
+                            </div>
+                            <button class="btn btn-outline" onclick="fetchPatient()" id="btnFetch">Fetch</button>
+                        </div>
+                        <div id="fetchResults" style="display:none; margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Multiple patients found. Please select one:</p>
+                            <div id="fetchResultsList" style="display:flex; flex-direction:column; gap:8px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registration Form -->
+                <div class="content-card">
+                    <div class="card-header">
+                        <h2>Patient Information</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="registerForm" onsubmit="registerPatient(event)">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="patName">Full Name *</label>
+                                    <input type="text" id="patName" required placeholder="Patient full name">
+                                </div>
+                                <div class="form-group">
+                                    <label for="patPhone">Phone *</label>
+                                    <input type="text" id="patPhone" required placeholder="Phone number">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="patAge">Age *</label>
+                                    <input type="number" id="patAge" required min="0" max="150" placeholder="Age">
+                                </div>
+                                <div class="form-group">
+                                    <label for="patGender">Gender *</label>
+                                    <select id="patGender" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="patAddress">Address</label>
+                                <input type="text" id="patAddress" placeholder="Address">
+                            </div>
+                            <div class="form-group">
+                                <label for="patComplaint">Chief Complaint</label>
+                                <textarea id="patComplaint" placeholder="Describe the complaint"></textarea>
+                            </div>
+
+                            <h3 style="margin: 20px 0 12px; font-size: 0.95rem;">Vitals</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="patBP">Blood Pressure</label>
+                                    <input type="text" id="patBP" placeholder="e.g. 120/80">
+                                </div>
+                                <div class="form-group">
+                                    <label for="patTemp">Temperature</label>
+                                    <input type="text" id="patTemp" placeholder="e.g. 98.6°F">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="patPulse">Pulse</label>
+                                    <input type="text" id="patPulse" placeholder="e.g. 72 bpm">
+                                </div>
+                                <div class="form-group">
+                                    <label for="patWeight">Weight</label>
+                                    <input type="text" id="patWeight" placeholder="e.g. 70 kg">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="patHeight">Height</label>
+                                    <input type="text" id="patHeight" placeholder="e.g. 170 cm">
+                                </div>
+                                <div class="form-group">
+                                    <label for="patSpO2">SpO2 (%)</label>
+                                    <input type="number" id="patSpO2" placeholder="Enter SpO2 (e.g., 98)" min="70"
+                                        max="100">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="patDoctor">Assign Doctor *</label>
+                                <select id="patDoctor" required onchange="generateTokenGrid()">
+                                    <option value="">Select Doctor</option>
+                                    <!-- Dynamic options injected by JS -->
+                                </select>
+                            </div>
+                            <div class="form-group"
+                                style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px;">
+                                <label>Select Token Number (Optional)</label>
+                                <div class="token-grid" id="tokenGrid">
+                                    <!-- JS will populate 1 to 100 -->
+                                </div>
+                                <input type="hidden" id="patManualToken" name="manual_token" value="">
+                            </div>
+
+                            <div style="margin-top: 20px;">
+                                <button type="submit" class="btn btn-primary" id="btnRegister">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" />
+                                        <circle cx="8.5" cy="7" r="4" />
+                                        <line x1="20" y1="8" x2="20" y2="14" />
+                                        <line x1="23" y1="11" x2="17" y2="11" />
+                                    </svg>
+                                    Register Patient
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Token result -->
+                        <div class="token-display hidden" id="tokenResult">
+                            <div class="token-label">Token Number</div>
+                            <div class="token-value" id="tokenValue"></div>
+                            <div class="doctor-label" id="tokenDoctor"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patients List Section -->
+            <div class="section" id="sectionPatients">
+                <div class="page-header" style="margin-bottom: 24px;">
+                    <h1>Today's Patients</h1>
+                    <p>All patients registered today</p>
+                </div>
+
+                <!-- Dynamic Doctor Tables Container -->
+                <div id="dynamicPatientsContainer">
+                    <!-- JS will inject tables per doctor here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script>
+        // PAGE-SPECIFIC FIX: Force layout stability on initial load
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        window.addEventListener('load', () => {
+            window.scrollTo(0, 0);
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=13"></script>
+</body>
+
+</html>

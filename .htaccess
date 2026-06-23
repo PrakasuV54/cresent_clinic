@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# 1. Protect the SQLite Database from being downloaded
+<FilesMatch "\.(db|sqlite|sqlite3)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 2. Route all requests to index.php (so /login, /receptionist work properly)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]

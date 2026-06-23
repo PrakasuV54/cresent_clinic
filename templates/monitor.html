@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waiting Hall Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .monitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: #1e293b;
+            border-bottom: 2px solid #334155;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        .monitor-header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #38bdf8;
+            letter-spacing: -0.02em;
+        }
+
+        .clock {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #cbd5e1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .split-container {
+            display: grid;
+            flex: 1;
+            overflow: hidden;
+            padding: 0;
+            transition: all 0.3s ease;
+        }
+
+        .doctor-col {
+            padding: 30px 40px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 0.5) 100%);
+            border-right: 2px solid #334155;
+            border-bottom: 2px solid #334155;
+        }
+        
+        .doctor-col:last-child {
+            border-right: none;
+        }
+
+        .doc-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .doc-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 8px;
+        }
+
+        .doc-subtitle {
+            font-size: 1.4rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+
+        .patient-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            padding-right: 10px;
+            flex: 1;
+        }
+
+        /* Hide scrollbar for TV */
+        .patient-list::-webkit-scrollbar {
+            display: none;
+        }
+
+        .patient-list {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .patient-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 20px;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 20px 30px;
+            border-radius: 16px;
+            border-left: 8px solid #3b82f6;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            min-width: 0;
+        }
+
+        .patient-row.state-waiting {
+            border-left-color: #ef4444;
+        }
+
+        .patient-row.state-consulting {
+            border-left-color: #eab308;
+            /* Only left strip color, no background change */
+        }
+
+        .patient-row.state-completed {
+            border-left-color: #10b981;
+            /* Only left strip color, no background change */
+        }
+
+        .token-num {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #e2e8f0;
+            width: 140px;
+            letter-spacing: -0.05em;
+            flex-shrink: 0;
+        }
+
+        .patient-name {
+            font-size: 2.4rem;
+            font-weight: 600;
+            color: #f8fafc;
+            flex: 1;
+            white-space: normal;
+            line-height: 1.2;
+            word-break: break-word;
+            text-transform: capitalize;
+            min-width: 0;
+        }
+
+        .patient-status {
+            font-size: 1rem;
+            font-weight: 700;
+            white-space: nowrap;
+            margin-left: auto;
+            padding: 4px 10px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .state-waiting .patient-status {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .state-consulting .patient-status {
+            background: rgba(234, 179, 8, 0.2);
+            color: #fde047;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        .state-completed .patient-status {
+            background: #10b981;
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.4);
+        }
+
+        .empty-msg {
+            text-align: center;
+            font-size: 1.8rem;
+            color: #475569;
+            margin-top: 80px;
+            font-weight: 400;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes completeFadeRow {
+
+            0%,
+            70% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.9) translateX(50px);
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="monitor-header">
+        <h1>Crescent Clinic & Scans</h1>
+        <div class="clock" id="clock">00:00:00</div>
+    </div>
+
+    <div class="split-container" id="split-container">
+        <!-- Dynamic Doctor Columns will be injected here -->
+    </div>
+
+    <script>
+        // Sound functionality
+        function playDing() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1046.50, ctx.currentTime); // C6
+
+                gainNode.gain.setValueAtTime(0, ctx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+
+                osc.connect(gainNode);
+                gainNode.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + 1.5);
+            } catch (e) {
+                console.error("Audio API error", e);
+            }
+        }
+        // Clock functionality
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            let minutes = now.getMinutes();
+            let ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // the hour '0' should be '12'
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            document.getElementById('clock').textContent = hours + ':' + minutes + ' ' + ampm;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Polling Logic
+        const PRESCRIBED_DELAY_MS = 10000; // 10 seconds delay before disappearing
+        let prescribedTimers = {}; // patient_id -> timestamp first seen as prescribed
+        let playedDings = {}; // patient_id -> bool
+        let previousHTMLState = {}; // doctor_id -> html string
+        let previousActiveDoctors = []; // To check if doctors list changed
+        let isFirstLoad = true;
+
+        async function pollData() {
+            try {
+                const fetchTime = Date.now();
+                const [docsRes, patRes] = await Promise.all([
+                    fetch('/api/doctors?_t=' + fetchTime),
+                    fetch('/api/patients?as_role=monitor&_t=' + fetchTime)
+                ]);
+
+                if (!docsRes.ok || !patRes.ok) {
+                    if (patRes.status === 401) window.location.href = '/login';
+                    return;
+                }
+
+                const allDoctors = await docsRes.json();
+                const patients = await patRes.json();
+
+                const activeDoctors = allDoctors.filter(d => d.is_active == 1);
+                const now = Date.now();
+                const container = document.getElementById('split-container');
+
+                // Check if layout needs to be rebuilt (doctors changed)
+                const currentDocsIds = activeDoctors.map(d => d.id).sort().join(',');
+                const previousDocsIds = previousActiveDoctors.map(d => d.id).sort().join(',');
+
+                if (currentDocsIds !== previousDocsIds) {
+                    // Rebuild columns
+                    container.innerHTML = '';
+                    previousHTMLState = {};
+                    previousActiveDoctors = activeDoctors;
+
+                    const count = activeDoctors.length;
+                    if (count === 0) {
+                        container.style.display = 'flex';
+                        container.innerHTML = '<div class="empty-msg" style="margin: auto; font-size: 2.5rem; color: #cbd5e1;">No Active Doctors</div>';
+                        return;
+                    }
+                    container.style.display = 'grid';
+                    if (count === 1) {
+                        container.style.gridTemplateColumns = '1fr';
+                        container.style.gridTemplateRows = '1fr';
+                    } else if (count === 2) {
+                        container.style.gridTemplateColumns = '1fr 1fr';
+                        container.style.gridTemplateRows = '1fr';
+                    } else if (count === 3) {
+                        container.style.gridTemplateColumns = '1fr 1fr 1fr';
+                        container.style.gridTemplateRows = '1fr';
+                    } else {
+                        // > 3 doctors
+                        const cols = Math.ceil(Math.sqrt(count));
+                        const rows = Math.ceil(count / cols);
+                        container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                        container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                    }
+
+                    activeDoctors.forEach((doc) => {
+                        let title = doc.display_name;
+                        if (doc.doctor_type === 'Gent') title = title.replace('Sir', '').trim() + ' (Sir)';
+                        if (doc.doctor_type === 'Lady') title = title.replace('Mam', '').replace('Madam', '').trim() + ' (Madam)';
+
+                        const col = document.createElement('div');
+                        col.className = 'doctor-col';
+                        col.innerHTML = `
+                            <div class="doc-header">
+                                <div class="doc-title">${title}</div>
+                                <div class="doc-subtitle">Consultation Queue</div>
+                            </div>
+                            <div class="patient-list" id="doc-list-${doc.id}"></div>
+                        `;
+                        container.appendChild(col);
+                    });
+                }
+
+                if (activeDoctors.length === 0) return;
+
+                // Group patients by doctor
+                const queues = {};
+                activeDoctors.forEach(d => { queues[d.id] = []; });
+
+                patients.forEach(p => {
+                    let dId = p.doctor_id;
+                    if (!dId || !queues[dId]) {
+                        // fallback to doctor_type if needed for legacy data
+                        const doc = activeDoctors.find(d => d.doctor_type === p.doctor_type);
+                        if (doc) dId = doc.id;
+                    }
+                    if (dId && queues[dId]) {
+                        queues[dId].push(p);
+                    }
+                });
+
+                const processQueue = (queue) => {
+                    let html = '';
+                    let waitingIndex = 0;
+
+                    queue.forEach(p => {
+                        let isVisible = false;
+                        let state = 'waiting';
+
+                        if (p.status === 'waiting') {
+                            isVisible = true;
+                            if (waitingIndex === 0) {
+                                state = 'consulting';
+                            } else {
+                                state = 'waiting';
+                            }
+                            waitingIndex++;
+                        } else if (p.status === 'prescribed') {
+                            if (isFirstLoad) {
+                                prescribedTimers[p.id] = now - PRESCRIBED_DELAY_MS - 1000;
+                            } else {
+                                if (!prescribedTimers[p.id]) {
+                                    prescribedTimers[p.id] = now;
+                                }
+                                if (now - prescribedTimers[p.id] < PRESCRIBED_DELAY_MS) {
+                                    isVisible = true;
+                                    state = 'completed';
+                                }
+                            }
+                        }
+
+                        if (isVisible) {
+                            let rowClass = '';
+                            let statusText = '';
+
+                            if (state === 'waiting') {
+                                rowClass = 'state-waiting';
+                                statusText = 'Waiting';
+                            } else if (state === 'consulting') {
+                                rowClass = 'state-consulting';
+                                statusText = 'Consulting';
+                            } else if (state === 'completed') {
+                                rowClass = 'state-completed';
+                                statusText = 'Completed';
+
+                                // Play Ding exactly once
+                                if (!playedDings[p.id]) {
+                                    playedDings[p.id] = true;
+                                    playDing();
+                                }
+                            }
+
+                            html += `
+                                <div class="patient-row ${rowClass}">
+                                    <div class="token-num">${p.token}</div>
+                                    <div class="patient-name">${p.name}</div>
+                                    <div class="patient-status">${statusText}</div>
+                                </div>
+                            `;
+                        }
+                    });
+                    return html;
+                };
+
+                activeDoctors.forEach(doc => {
+                    const html = processQueue(queues[doc.id]);
+                    const finalHTML = html || '<div class="empty-msg">No patients in queue</div>';
+                    const listContainer = document.getElementById(`doc-list-${doc.id}`);
+
+                    if (listContainer && previousHTMLState[doc.id] !== finalHTML) {
+                        listContainer.innerHTML = finalHTML;
+                        previousHTMLState[doc.id] = finalHTML;
+                    }
+                });
+
+                isFirstLoad = false;
+
+            } catch (e) {
+                console.error("Polling failed", e);
+            }
+        }
+
+        // Poll every 3 seconds
+        setInterval(pollData, 3000);
+        pollData();
+    </script>
+</body>
+
+</html>

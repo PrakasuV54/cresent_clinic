@@ -1,0 +1,126 @@
+[2026-06-27 12:33:09] Simulated send to +918056595689:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC REPORT BACKUP*
+Date: 27-06-2026
+Time: 12:33 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Attached is the PDF report backup details._
+
+[2026-06-27 16:03:58] Simulated send to +918056595689:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC AUTOMATIC BACKUP*
+Date: 27-06-2026
+Time: 04:03 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Please see the attached PDF for the full breakdown._
+
+[2026-06-27 16:03:58] Simulated send to +918056595689:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC AUTOMATIC BACKUP*
+Date: 27-06-2026
+Time: 04:03 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Please see the attached PDF for the full breakdown._
+
+[2026-06-27 16:03:58] Simulated send to +918056595689:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC REPORT BACKUP*
+Date: 27-06-2026
+Time: 04:03 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Attached is the PDF report backup details._
+
+[2026-06-27 16:06:04] Simulated send to +918056595689:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC REPORT BACKUP*
+Date: 27-06-2026
+Time: 04:06 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Attached is the PDF report backup details._
+
+[2026-06-27 16:06:23] Simulated send to +918056595689:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC REPORT BACKUP*
+Date: 27-06-2026
+Time: 04:06 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Attached is the PDF report backup details._
+
+[2026-06-27 16:09:44] Simulated send to +9003573340:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC REPORT BACKUP*
+Date: 27-06-2026
+Time: 04:09 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Attached is the PDF report backup details._
+
+[2026-06-27 16:09:47] Simulated send to +9003573340:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC REPORT BACKUP*
+Date: 27-06-2026
+Time: 04:09 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Attached is the PDF report backup details._
+
+[2026-06-27 16:09:55] Simulated send to +9003573340:
+File: Master_Report_2026-06-27.pdf
+Text Summary:
+*🏥 CRESCENT CLINIC REPORT BACKUP*
+Date: 27-06-2026
+Time: 04:09 PM
+
+📊 *QUICK STATS SUMMARY*
+• Patients Visited: 4
+• Total Revenue: Rs. 2,350.00
+• Total Expenses: Rs. 0.00
+
+_Attached is the PDF report backup details._
+
