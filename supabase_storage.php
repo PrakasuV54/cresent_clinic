@@ -26,7 +26,8 @@ function upload_to_supabase($file_path, $bucket, $object_key, $mime_type) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $file_content);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Authorization: Bearer $supabase_key",
-        "Content-Type: $mime_type"
+        "Content-Type: $mime_type",
+        "x-upsert: true"
     ]);
 
     $response = curl_exec($ch);
@@ -92,7 +93,8 @@ function upload_buffer_to_supabase($buffer, $bucket, $object_key, $mime_type) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $buffer);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Authorization: Bearer $supabase_key",
-        "Content-Type: $mime_type"
+        "Content-Type: $mime_type",
+        "x-upsert: true"
     ]);
 
     $response = curl_exec($ch);
