@@ -2961,6 +2961,27 @@ if ($uri === '/api/agency/stock/adjust' && $method === 'POST') {
 
 // Stock Transfers (Agency -> Pharmacy)
 if ($uri === '/api/agency/stock/transfer' && $method === 'POST') {
+    enforce_api_auth(['pharmacist']);
+    $conn = get_db();
+    $conn->beginTransaction();
+    try {
+        $item_id = $input['item_id'] ?? null;
+        $qty = (int)($input['quantity'] ?? 0);
+        
+        $ins = $conn->prepare("INSERT INTO agency_stock_transfers (item_id, quantity) VALUES (?,?)");
+        $ins->execute([$item_id, $qty]);
+
+        $upd = $conn->prepare("UPDATE agency_items SET stock = stock - ? WHERE id = ?");
+        $upd->execute([$qty, $item_id]);
+
+        $stmt_name = $conn->prepare("SELECT item_name, batch_number FROM agency_items WHERE id = ?");
+        $stmt_name->execute([$item_id]);
+        $item_info = $stmt_name->fetch(PDO::FETCH_ASSOC);
+        if ($item_info) {
+            sync_stock_item($conn, $item_info['item_name'], $item_info['batch_number'], 'agency');
+        }
+
+        $conn->commit();
         json_response(['success' => true]);
     } catch (Exception $e) {
         $conn->rollBack();
