@@ -21,12 +21,11 @@ function get_db()
         $db_token = getenv('TURSO_AUTH_TOKEN');
 
         if ($db_url && $db_token) {
-            $dsn = "libsql:dbname=" . $db_url . ";authToken=" . $db_token;
-            $conn = new \DarkWebDesign\PdoLibsql\PDO($dsn);
-        } else {
-            $conn = new PDO('sqlite:' . DB_PATH);
-            $conn->exec("PRAGMA journal_mode=WAL");
+            error_log("Warning: Turso/LibSQL remote connections are not natively supported by PHP PDO on Vercel without a custom client. Falling back to ephemeral local SQLite database.");
         }
+        
+        $conn = new PDO('sqlite:' . DB_PATH);
+        $conn->exec("PRAGMA journal_mode=WAL");
 
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
