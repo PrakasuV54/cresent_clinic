@@ -29,6 +29,9 @@ function sync_db_from_supabase($target) {
 
 function sync_db_to_supabase() {
     global $target_db;
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close(); // Force session data to write to SQLite BEFORE uploading!
+    }
     if (file_exists($target_db)) {
         // Only sync on POST/PUT/DELETE requests where DB might change
         if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] !== 'GET') {
