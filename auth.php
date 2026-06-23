@@ -11,6 +11,12 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_samesite', 'Lax');
 
     require_once __DIR__ . '/session_handler.php';
+    
+    // Serverless cold-start initialization: Seed the ephemeral DB if it's empty
+    if (!file_exists(DB_PATH) || filesize(DB_PATH) === 0) {
+        init_db();
+    }
+
     session_set_save_handler(new DatabaseSessionHandler(), true);
     session_start();
 }
