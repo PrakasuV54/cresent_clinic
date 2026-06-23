@@ -1,8 +1,8 @@
 <?php
 date_default_timezone_set('Asia/Kolkata');
 
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../auth.php';
 
 // Enforce management access
 if (session_status() === PHP_SESSION_NONE) {
@@ -461,7 +461,7 @@ if ($action === 'save_backup_settings') {
 }
 
 if ($action === 'trigger_whatsapp_backup') {
-    require_once __DIR__ . '/cron_backup.php';
+    require_once __DIR__ . '/../cron_backup.php';
     $to = trim($_POST['to'] ?? $_GET['to'] ?? '');
     $result = run_instant_backup_send($to);
     header('Content-Type: application/json');

@@ -3,9 +3,9 @@
  * Main Router / Entry Point for Hospital Portal (PHP Version)
  */
 
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/template_parser.php';
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../template_parser.php';
 
 // Schema initialization has been delegated to explicit admin endpoints or CLI
 // to prevent Turso/SQLite latency spikes on every Vercel serverless HTTP request.
@@ -67,7 +67,7 @@ if ($uri === '/login') {
         if ($user && $user['is_active'] == 0) {
             $doctors = get_all_doctors(true);
             $total_boxes = count($doctors) + 3;
-            echo TemplateParser::render(__DIR__ . '/templates/login.html', [
+            echo TemplateParser::render(__DIR__ . '/../templates/login.html', [
                 'error' => 'Account is inactive. Please contact admin.', 
                 'doctor_cards' => '', // Hide doctor cards on this specific error for safety
                 'total_boxes' => $total_boxes
@@ -135,7 +135,7 @@ if ($uri === '/login') {
             </div>';
             
             $total_boxes = count($doctors) + 3;
-            echo TemplateParser::render(__DIR__ . '/templates/login.html', [
+            echo TemplateParser::render(__DIR__ . '/../templates/login.html', [
                 'error' => 'Invalid username or password', 
                 'doctor_cards' => $doctor_cards,
                 'total_boxes' => $total_boxes
@@ -181,7 +181,7 @@ if ($uri === '/login') {
     </div>';
     
     $total_boxes = count($doctors) + 3;
-    echo TemplateParser::render(__DIR__ . '/templates/login.html', [
+    echo TemplateParser::render(__DIR__ . '/../templates/login.html', [
         'error' => '', 
         'doctor_cards' => $doctor_cards,
         'total_boxes' => $total_boxes
@@ -209,14 +209,14 @@ if ($uri === '/logout') {
 
 if ($uri === '/receptionist') {
     login_required('receptionist');
-    echo TemplateParser::render(__DIR__ . '/templates/receptionist.html', ['display_name' => $_SESSION['display_name']]);
+    echo TemplateParser::render(__DIR__ . '/../templates/receptionist.html', ['display_name' => $_SESSION['display_name']]);
     exit;
 }
 
 if ($uri === '/doctor') {
     login_required('doctor');
     $formatted_name = format_doctor_name($_SESSION['display_name'], $_SESSION['doctor_type']);
-    echo TemplateParser::render(__DIR__ . '/templates/doctor.html', [
+    echo TemplateParser::render(__DIR__ . '/../templates/doctor.html', [
         'display_name' => $formatted_name,
         'doctor_name' => $formatted_name,
         'doctor_type' => $_SESSION['doctor_type']
@@ -226,13 +226,13 @@ if ($uri === '/doctor') {
 
 if ($uri === '/pharmacy') {
     login_required('pharmacist');
-    echo TemplateParser::render(__DIR__ . '/templates/pharmacy.html', ['display_name' => $_SESSION['display_name']]);
+    echo TemplateParser::render(__DIR__ . '/../templates/pharmacy.html', ['display_name' => $_SESSION['display_name']]);
     exit;
 }
 
 if ($uri === '/management') {
     login_required('management');
-    echo TemplateParser::render(__DIR__ . '/templates/management.html', ['display_name' => $_SESSION['display_name']]);
+    echo TemplateParser::render(__DIR__ . '/../templates/management.html', ['display_name' => $_SESSION['display_name']]);
     exit;
 }
 
@@ -245,12 +245,12 @@ if ($uri === '/monitor') {
         echo "<div style='font-family:sans-serif; text-align:center; padding:50px;'><h2>Access Denied</h2><p>Monitor module is currently disabled. Please enable it in the Manage Staff section.</p></div>";
         exit;
     }
-    echo TemplateParser::render(__DIR__ . '/templates/monitor.html', []);
+    echo TemplateParser::render(__DIR__ . '/../templates/monitor.html', []);
     exit;
 }
 
 if ($uri === '/portfolio') {
-    echo TemplateParser::render(__DIR__ . '/templates/portfolio.html', []);
+    echo TemplateParser::render(__DIR__ . '/../templates/portfolio.html', []);
     exit;
 }
 
@@ -263,7 +263,7 @@ if ($uri === '/control_access') {
     $module = $_GET['module'] ?? '';
 
     if ($module === 'receptionist') {
-        echo TemplateParser::render(__DIR__ . '/templates/receptionist.html', ['display_name' => $_SESSION['display_name'] ?? 'Reception']);
+        echo TemplateParser::render(__DIR__ . '/../templates/receptionist.html', ['display_name' => $_SESSION['display_name'] ?? 'Reception']);
         exit;
     }
 
@@ -285,7 +285,7 @@ if ($uri === '/control_access') {
             $_SESSION['doctor_id'] = $doc['id'];
             $_SESSION['doctor_type'] = $doc['doctor_type'];
             $formatted_name = format_doctor_name($doc['display_name'], $doc['doctor_type']);
-            echo TemplateParser::render(__DIR__ . '/templates/doctor.html', [
+            echo TemplateParser::render(__DIR__ . '/../templates/doctor.html', [
                 'display_name' => $formatted_name,
                 'doctor_name' => $formatted_name,
                 'doctor_type' => $doc['doctor_type']
@@ -297,7 +297,7 @@ if ($uri === '/control_access') {
     }
 
     if ($module === 'pharmacy') {
-        echo TemplateParser::render(__DIR__ . '/templates/pharmacy.html', ['display_name' => $_SESSION['display_name'] ?? 'Pharmacy']);
+        echo TemplateParser::render(__DIR__ . '/../templates/pharmacy.html', ['display_name' => $_SESSION['display_name'] ?? 'Pharmacy']);
         exit;
     }
 
@@ -306,7 +306,7 @@ if ($uri === '/control_access') {
         $stmt = $conn->prepare("SELECT * FROM users WHERE role='monitor' AND is_active=1 LIMIT 1");
         $stmt->execute();
         if ($stmt->fetch()) {
-            echo TemplateParser::render(__DIR__ . '/templates/monitor.html', []);
+            echo TemplateParser::render(__DIR__ . '/../templates/monitor.html', []);
         } else {
             echo "<div style='font-family:sans-serif; text-align:center; padding:50px;'><h2>Access Denied</h2><p>Monitor module is currently disabled. Please enable it in the Manage Staff section.</p></div>";
         }

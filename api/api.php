@@ -7,8 +7,8 @@ header('Pragma: no-cache');
  * API Endpoints (PHP Version)
  */
 
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../auth.php';
 
 function enforce_api_auth($allowed_roles = []) {
     if (!isset($_SESSION['user_id'])) {
@@ -2179,7 +2179,7 @@ if (preg_match('/^\/api\/whatsapp_link\/(\d+)$/', $uri, $matches)) {
 
 if (preg_match('/^\/api\/generate_pdf\/(\d+)$/', $uri, $matches)) {
     enforce_api_auth(['doctor', 'pharmacist']);
-    require_once __DIR__ . '/pdf_gen.php';
+    require_once __DIR__ . '/../pdf_gen.php';
     $presc_id = $matches[1];
     $pdf_content = generate_prescription_pdf($presc_id);
     

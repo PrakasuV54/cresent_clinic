@@ -7,11 +7,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api.php"
+      "dest": "/api/api.php"
     },
     {
       "src": "/reports/(.*)",
-      "dest": "/reports_api.php"
+      "dest": "/api/reports_api.php"
     },
     {
       "src": "/static/(.*)",
@@ -19,7 +19,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/index.php"
+      "dest": "/api/index.php"
     }
   ],
   "crons": [
