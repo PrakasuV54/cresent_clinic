@@ -251,6 +251,13 @@ function init_db()
         gpay_amount REAL DEFAULT 0.00,
         paid_amount REAL DEFAULT 0.00,
         balance_amount REAL DEFAULT 0.00,
+        discount_percent REAL DEFAULT 0.00,
+        scan_type TEXT,
+        scan_notes TEXT,
+        phonepe_amount REAL DEFAULT 0.00,
+        bank_amount REAL DEFAULT 0.00,
+        upi_account TEXT,
+        account_id INTEGER,
         FOREIGN KEY (patient_id) REFERENCES patients(id)
     )");
     $conn->exec("CREATE TABLE IF NOT EXISTS direct_sales (

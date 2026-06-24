@@ -327,12 +327,22 @@ try {
         $conn->exec("ALTER TABLE direct_sales ADD COLUMN payment_history TEXT");
     }
 
-    // Self-healing: Ensure phonepe_amount exists in prescriptions
+    // Self-healing: Ensure new columns exist in prescriptions
     $stmt_pr = $conn->query("PRAGMA table_info(prescriptions)");
     $cols_pr = $stmt_pr->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_pr)) {
-        $conn->exec("ALTER TABLE prescriptions ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    }
+    if (!in_array('phonepe_amount', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN bank_amount REAL DEFAULT 0.00");
+    if (!in_array('discount_percent', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN discount_percent REAL DEFAULT 0.00");
+    if (!in_array('scan_type', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN scan_type TEXT");
+    if (!in_array('scan_notes', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN scan_notes TEXT");
+    if (!in_array('upi_account', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN upi_account TEXT");
+    if (!in_array('account_id', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN account_id INTEGER");
+
+    // Self-healing: Ensure supplier_id exists in inventory
+    $stmt_inv = $conn->query("PRAGMA table_info(inventory)");
+    $cols_inv = $stmt_inv->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('supplier_id', $cols_inv)) $conn->exec("ALTER TABLE inventory ADD COLUMN supplier_id INTEGER");
+
 } catch (Exception $e) {}
 
 function get_prev_balance_info($conn, $patient_id, $current_presc_id) {
