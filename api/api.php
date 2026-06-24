@@ -294,38 +294,30 @@ try {
         sale_id INTEGER
     )");
 
-    // Self-healing: Ensure phonepe_amount and bank_amount exist in agency_purchases
+    // Self-healing: Ensure new columns exist in agency_purchases
     $stmt_ap = $conn->query("PRAGMA table_info(agency_purchases)");
     $cols_ap = $stmt_ap->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_ap)) {
-        $conn->exec("ALTER TABLE agency_purchases ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    }
-    if (!in_array('bank_amount', $cols_ap)) {
-        $conn->exec("ALTER TABLE agency_purchases ADD COLUMN bank_amount REAL DEFAULT 0.00");
-    }
+    if (!in_array('phonepe_amount', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN bank_amount REAL DEFAULT 0.00");
+    if (!in_array('upi_account', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN upi_account TEXT");
+    if (!in_array('account_id', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN account_id INTEGER");
 
-    // Self-healing: Ensure phonepe_amount and bank_amount exist in agency_suppliers
+    // Self-healing: Ensure new columns exist in agency_suppliers
     $stmt_as = $conn->query("PRAGMA table_info(agency_suppliers)");
     $cols_as = $stmt_as->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_as)) {
-        $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    }
-    if (!in_array('bank_amount', $cols_as)) {
-        $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN bank_amount REAL DEFAULT 0.00");
-    }
+    if (!in_array('phonepe_amount', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN bank_amount REAL DEFAULT 0.00");
+    if (!in_array('upi_account', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN upi_account TEXT");
+    if (!in_array('account_id', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN account_id INTEGER");
 
-    // Self-healing: Ensure phonepe_amount, bank_amount, and payment_history exist in direct_sales
+    // Self-healing: Ensure new columns exist in direct_sales
     $stmt_ds = $conn->query("PRAGMA table_info(direct_sales)");
     $cols_ds = $stmt_ds->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_ds)) {
-        $conn->exec("ALTER TABLE direct_sales ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    }
-    if (!in_array('bank_amount', $cols_ds)) {
-        $conn->exec("ALTER TABLE direct_sales ADD COLUMN bank_amount REAL DEFAULT 0.00");
-    }
-    if (!in_array('payment_history', $cols_ds)) {
-        $conn->exec("ALTER TABLE direct_sales ADD COLUMN payment_history TEXT");
-    }
+    if (!in_array('phonepe_amount', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN bank_amount REAL DEFAULT 0.00");
+    if (!in_array('payment_history', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN payment_history TEXT");
+    if (!in_array('upi_account', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN upi_account TEXT");
+    if (!in_array('account_id', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN account_id INTEGER");
 
     // Self-healing: Ensure new columns exist in prescriptions
     $stmt_pr = $conn->query("PRAGMA table_info(prescriptions)");

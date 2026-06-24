@@ -44,6 +44,7 @@ function get_db()
         
         $conn = new PDO('sqlite:' . DB_PATH);
         $conn->exec("PRAGMA journal_mode=WAL");
+        $conn->exec("PRAGMA busy_timeout=5000");
 
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
