@@ -6,12 +6,14 @@
 $env_path = __DIR__ . '/.env';
 if (file_exists($env_path)) {
     $lines = file($env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) continue;
-        if (strpos($line, '=') !== false) {
-            list($name, $value) = explode('=', $line, 2);
-            putenv(trim($name) . '=' . trim($value));
-            $_ENV[trim($name)] = trim($value);
+    if (is_array($lines)) {
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) continue;
+            if (strpos($line, '=') !== false) {
+                list($name, $value) = explode('=', $line, 2);
+                putenv(trim($name) . '=' . trim($value));
+                $_ENV[trim($name)] = trim($value);
+            }
         }
     }
 }
@@ -46,12 +48,24 @@ function get_db()
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-        $conn->exec("PRAGMA foreign_keys=ON");
+        // Auto-initialize if database is empty
+        $stmt = $conn->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+        if (!$stmt->fetch()) {
+            $conn->exec("PRAGMA foreign_keys=ON");
+            init_db_schema($conn);
+        } else {
+            $conn->exec("PRAGMA foreign_keys=ON");
+        }
 
         return $conn;
     } catch (PDOException $e) {
         die("DB Connection Error: " . $e->getMessage());
     }
+}
+
+function init_db_schema($conn) {
+    // Moved the schema creation logic here so it can be called safely from get_db
+    init_db();
 }
 
 /**
