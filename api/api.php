@@ -1,4 +1,6 @@
 <?php
+error_reporting(0);
+ini_set('display_errors', 0);
 date_default_timezone_set('Asia/Kolkata');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Cache-Control: post-check=0, pre-check=0', false);
@@ -9,6 +11,18 @@ header('Pragma: no-cache');
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
+
+if (!function_exists('json_response')) {
+    function json_response($data, $status = 200) {
+        if (ob_get_level()) {
+            @ob_end_clean();
+        }
+        header('Content-Type: application/json');
+        http_response_code($status);
+        echo json_encode($data);
+        exit;
+    }
+}
 
 function enforce_api_auth($allowed_roles = []) {
     if (!isset($_SESSION['user_id'])) {
@@ -352,7 +366,18 @@ function get_prev_balance_info($conn, $patient_id, $current_presc_id) {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 if ($uri === '/api/doctors' && $method === 'GET') {
-    json_response(get_all_doctors());
+    try {
+        json_response(get_all_doctors());
+    } catch (Throwable $e) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+        echo json_encode([
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ]);
+        exit;
+    }
 }
 
 if ($uri === '/api/register_patient' && $method === 'POST') {
@@ -3192,12 +3217,14 @@ if ($uri === '/api/agency/ocr_scan' && $method === 'POST') {
         ]
     ];
 
-    $models_to_try = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    $models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-pro-vision'];
     $json_data = null;
     $last_error = "Unknown error";
+    $all_errors = [];
 
     foreach ($models_to_try as $model) {
-        $ch = curl_init("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . $api_key);
+        $api_version = ($model === 'gemini-pro-vision') ? 'v1beta' : 'v1';
+        $ch = curl_init("https://generativelanguage.googleapis.com/{$api_version}/models/{$model}:generateContent?key=" . $api_key);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_setopt($ch, CURLOPT_POST, true);
@@ -3208,6 +3235,7 @@ if ($uri === '/api/agency/ocr_scan' && $method === 'POST') {
         $response = curl_exec($ch);
         if(curl_errno($ch)){
             $last_error = curl_error($ch);
+            $all_errors[] = "cURL $model: $last_error";
             log_ocr_error("cURL Error ($model): $last_error");
             curl_close($ch);
             continue; // try next model
@@ -3217,6 +3245,7 @@ if ($uri === '/api/agency/ocr_scan' && $method === 'POST') {
         $result = json_decode($response, true);
         if (isset($result['error'])) {
             $last_error = "API Error: " . ($result['error']['message'] ?? 'Unknown');
+            $all_errors[] = "$model failed: $last_error";
             log_ocr_error("API Error ($model): " . json_encode($result['error']));
             continue;
         }
@@ -3247,7 +3276,8 @@ if ($uri === '/api/agency/ocr_scan' && $method === 'POST') {
         }
     }
     
-    json_response(['success' => false, 'error' => "AI Scan Failed. Reason: $last_error"], 500);
+    $error_details = implode(" | ", $all_errors);
+    json_response(['success' => false, 'error' => "AI Scan Failed. Reason: $last_error. History: $error_details"], 500);
 }
 
 // Reports
@@ -3857,10 +3887,21 @@ if ($uri === '/api/returns_history' && $method === 'GET') {
 // ══════════════════════════════════════════════════════════════════════
 
 if ($uri === '/api/upi_accounts' && $method === 'GET') {
-    enforce_api_auth(['receptionist', 'pharmacist']);
-    $conn = get_db();
-    $stmt = $conn->query("SELECT * FROM upi_accounts ORDER BY id ASC");
-    json_response($stmt->fetchAll(PDO::FETCH_ASSOC));
+    try {
+        enforce_api_auth(['receptionist', 'pharmacist']);
+        $conn = get_db();
+        $stmt = $conn->query("SELECT * FROM upi_accounts ORDER BY id ASC");
+        json_response($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch (Throwable $e) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+        echo json_encode([
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ]);
+        exit;
+    }
 }
 
 if ($uri === '/api/upi_accounts/add' && $method === 'POST') {
@@ -4008,7 +4049,7 @@ if ($uri === '/api/upi_accounts/delete' && $method === 'POST') {
 // API — VERCEL CRON
 // ═══════════════════════════════════════════
 if ($uri === '/api/cron/backup' && $method === 'GET') {
-    require_once __DIR__ . '/cron_backup.php';
+    require_once __DIR__ . '/../cron_backup.php';
     
     // Verify Vercel Cron Secret
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';

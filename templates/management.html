@@ -3497,8 +3497,9 @@ async function editMedModal(item) {
         async function loadMasterData(tab = 'doctors') {
             if (tab === 'doctors' || tab === 'staff') {
                 const users = await api('/api/management/users');
-                const doctors = users.filter(u => u.role === 'doctor');
-                const staff = users.filter(u => u.role !== 'doctor');
+                const userData = users.users || users;
+                const doctors = userData.filter(u => u.role === 'doctor');
+                const staff = userData.filter(u => u.role !== 'doctor');
                 
                 document.getElementById('masterDoctorsBody').innerHTML = doctors.map(u => `
                     <tr>

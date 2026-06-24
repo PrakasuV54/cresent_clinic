@@ -6,7 +6,13 @@ RewriteEngine On
     Deny from all
 </FilesMatch>
 
-# 2. Route all requests to index.php (so /login, /receptionist work properly)
+# 2. Route API requests
+RewriteRule ^api/(.*)$ api/api.php [QSA,L]
+
+# 3. Route Report requests
+RewriteRule ^reports/(.*)$ api/reports_api.php [QSA,L]
+
+# 4. Route all other requests to index.php (so /login, /receptionist work properly)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]

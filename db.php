@@ -3,61 +3,23 @@
  * Database Configuration and Helpers (PHP/PDO Version)
  */
 
-// Vercel Serverless Persistent SQLite via Supabase Storage
-$target_db = '/tmp/hospital_portal.db';
-$source_db = __DIR__ . DIRECTORY_SEPARATOR . 'hospital_portal.db';
+$env_path = __DIR__ . '/.env';
+if (file_exists($env_path)) {
+    $lines = file($env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            putenv(trim($name) . '=' . trim($value));
+            $_ENV[trim($name)] = trim($value);
+        }
+    }
+}
+
+// Persistent SQLite for standard shared hosting
 require_once __DIR__ . '/supabase_storage.php';
 
-function sync_db_from_supabase($target) {
-    $url = rtrim(getenv('SUPABASE_URL'), '/') . "/storage/v1/object/ocr_scans/database.sqlite";
-    $key = getenv('SUPABASE_SERVICE_ROLE_KEY');
-    if (!$url || !$key) return false;
-    
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer $key"]);
-    $data = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    if ($code === 200 && $data) {
-        file_put_contents($target, $data);
-        return true;
-    }
-    return false;
-}
-
-function sync_db_to_supabase() {
-    global $target_db;
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_write_close(); // Force session data to write to SQLite BEFORE uploading!
-    }
-    if (file_exists($target_db)) {
-        // Only sync on POST/PUT/DELETE requests where DB might change
-        if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] !== 'GET') {
-            try {
-                $conn = get_db();
-                $conn->exec("PRAGMA wal_checkpoint(FULL);");
-            } catch (Exception $e) {}
-            upload_to_supabase($target_db, 'ocr_scans', 'database.sqlite', 'application/x-sqlite3');
-        }
-    }
-}
-
-if (!file_exists($target_db)) {
-    // Cold start: Try to download persistent DB from Supabase
-    if (!sync_db_from_supabase($target_db)) {
-        // Fallback to initial local DB if not found in Supabase
-        if (file_exists($source_db)) {
-            copy($source_db, $target_db);
-        }
-    }
-}
-
-// Register shutdown function to backup DB at the end of every modifying request
-register_shutdown_function('sync_db_to_supabase');
-
-define('DB_PATH', file_exists('/tmp') ? $target_db : $source_db);
+define('DB_PATH', __DIR__ . DIRECTORY_SEPARATOR . 'hospital_portal.db');
 
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
