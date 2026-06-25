@@ -18,10 +18,7 @@ if (file_exists($env_path)) {
     }
 }
 
-// Persistent SQLite for standard shared hosting
 require_once __DIR__ . '/supabase_storage.php';
-
-define('DB_PATH', __DIR__ . DIRECTORY_SEPARATOR . 'hospital_portal.db');
 
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
@@ -35,27 +32,19 @@ function get_db()
     }
 
     try {
-        $db_url = getenv('TURSO_DATABASE_URL');
-        $db_token = getenv('TURSO_AUTH_TOKEN');
+        $host = getenv('DB_HOST') ?: 'localhost';
+        $dbname = getenv('DB_NAME') ?: 'u526658771_crescent';
+        $username = getenv('DB_USER') ?: 'u526658771_nnp';
+        $password = getenv('DB_PASSWORD') ?: 'Namaraja@4';
 
-        if ($db_url && $db_token) {
-            error_log("Warning: Turso/LibSQL remote connections are not natively supported by PHP PDO on Vercel without a custom client. Falling back to ephemeral local SQLite database.");
-        }
-        
-        $conn = new PDO('sqlite:' . DB_PATH);
-        $conn->exec("PRAGMA journal_mode=WAL");
-        $conn->exec("PRAGMA busy_timeout=5000");
-
+        $conn = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-        // Auto-initialize if database is empty
-        $stmt = $conn->query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+        // Auto-initialize if database is empty (check if 'users' table exists)
+        $stmt = $conn->query("SHOW TABLES LIKE 'users'");
         if (!$stmt->fetch()) {
-            $conn->exec("PRAGMA foreign_keys=ON");
             init_db_schema($conn);
-        } else {
-            $conn->exec("PRAGMA foreign_keys=ON");
         }
 
         return $conn;
@@ -65,7 +54,6 @@ function get_db()
 }
 
 function init_db_schema($conn) {
-    // Moved the schema creation logic here so it can be called safely from get_db
     init_db();
 }
 
@@ -75,283 +63,173 @@ function init_db_schema($conn) {
 function init_db()
 {
     $conn = get_db();
-    $conn->exec("PRAGMA foreign_keys=OFF");
+    $conn->exec("SET FOREIGN_KEY_CHECKS = 0");
 
-    // Create Tables
+    // Create Tables using MySQL compatible syntax
     $conn->exec("CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
+        id VARCHAR(255) PRIMARY KEY,
         data TEXT NOT NULL,
-        expires_at INTEGER NOT NULL
-    )");
+        expires_at INT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL,
-        doctor_type TEXT,
-        display_name TEXT,
-        specialization TEXT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        doctor_type VARCHAR(50),
+        display_name VARCHAR(255),
+        specialization VARCHAR(255),
         details TEXT,
-        photo_path TEXT,
-        token_prefix TEXT,
-        is_active INTEGER DEFAULT 1
-    )");
+        photo_path VARCHAR(255),
+        token_prefix VARCHAR(50),
+        is_active TINYINT DEFAULT 1,
+        admin_security_password VARCHAR(255) DEFAULT '123',
+        doctor_registration_number VARCHAR(255)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS system_settings (
-        setting_key TEXT PRIMARY KEY,
+        setting_key VARCHAR(255) PRIMARY KEY,
         setting_value TEXT
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS whatsapp_backup_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         backup_date DATE NOT NULL UNIQUE,
-        status TEXT NOT NULL,
-        attempts INTEGER DEFAULT 1,
-        last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        status VARCHAR(50) NOT NULL,
+        attempts INT DEFAULT 1,
+        last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         error_message TEXT,
-        pdf_path TEXT
-    )");
-
-    // Migration: Check if specialization column exists, if not, do table rebuild
-    try {
-        $stmt_users = $conn->query("SELECT specialization, details, photo_path FROM users LIMIT 1");
-        $stmt_users->closeCursor();
-        $stmt_users = null;
-    } catch (Exception $e) {
-        $conn->exec("CREATE TABLE users_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            role TEXT NOT NULL,
-            doctor_type TEXT,
-            display_name TEXT,
-            specialization TEXT,
-            details TEXT,
-            photo_path TEXT
-        )");
-        $conn->exec("INSERT INTO users_new (id, username, password, role, doctor_type, display_name) SELECT id, username, password, role, doctor_type, display_name FROM users");
-        $conn->exec("DROP TABLE users");
-        $conn->exec("ALTER TABLE users_new RENAME TO users");
-    }
-
-    // Migration: Check if token_prefix column exists
-    $stmt = $conn->query("PRAGMA table_info(users)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('token_prefix', $cols)) {
-        $conn->exec("ALTER TABLE users ADD COLUMN token_prefix TEXT");
-        $conn->exec("UPDATE users SET token_prefix = substr(doctor_type, 1, 1) WHERE role='doctor' AND doctor_type IS NOT NULL");
-    }
-
-    // Migration: Check if is_active column exists
-    $stmt = $conn->query("PRAGMA table_info(users)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('is_active', $cols)) {
-        $conn->exec("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1");
-    }
-
-    // Migration: Check if doctor_registration_number column exists
-    $stmt = $conn->query("PRAGMA table_info(users)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('doctor_registration_number', $cols)) {
-        $conn->exec("ALTER TABLE users ADD COLUMN doctor_registration_number TEXT");
-    }
-
+        pdf_path VARCHAR(255)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS patients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        age INTEGER NOT NULL,
-        gender TEXT NOT NULL,
-        phone TEXT NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        age INT NOT NULL,
+        gender VARCHAR(50) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
         address TEXT,
-        doctor_id INTEGER,
-        doctor_type TEXT NOT NULL,
-        doctor_name TEXT NOT NULL,
+        doctor_id INT,
+        doctor_type VARCHAR(50) NOT NULL,
+        doctor_name VARCHAR(255) NOT NULL,
         complaint TEXT,
-        bp TEXT,
-        temp TEXT,
-        pulse TEXT,
-        weight TEXT,
-        height TEXT,
-        token TEXT NOT NULL,
-        status TEXT DEFAULT 'waiting' CHECK(status IN ('waiting','prescribed','completed')),
-        created_at TIMESTAMP DEFAULT (datetime('now', '+05:30')),
-        completed_at TIMESTAMP,
-        spo2 INTEGER,
-        patient_id TEXT
-    )");
-
-    // Migration: Remove check constraint on doctor_type in patients table
-    $patient_sql = false;
-    try {
-        $stmt = $conn->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='patients'");
-        if ($stmt) {
-            $patient_sql = $stmt->fetchColumn();
-            $stmt->closeCursor();
-            $stmt = null;
-        }
-    } catch (Exception $e) {
-        // Ignore schema read errors (e.g. lack of permissions on serverless platforms)
-    }
-
-    if ($patient_sql && strpos($patient_sql, "CHECK(doctor_type IN ('Gent','Lady'))") !== false) {
-        $conn->exec("DROP TABLE IF EXISTS patients_new");
-        $conn->exec("CREATE TABLE patients_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            age INTEGER NOT NULL,
-            gender TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            address TEXT,
-            doctor_id INTEGER,
-            doctor_type TEXT NOT NULL,
-            doctor_name TEXT NOT NULL,
-            complaint TEXT,
-            bp TEXT,
-            temp TEXT,
-            pulse TEXT,
-            weight TEXT,
-            height TEXT,
-            token TEXT NOT NULL,
-            status TEXT DEFAULT 'waiting' CHECK(status IN ('waiting','prescribed','completed')),
-            created_at TIMESTAMP DEFAULT (datetime('now', '+05:30')),
-            completed_at TIMESTAMP,
-            spo2 INTEGER,
-            patient_id TEXT
-        )");
-        $conn->exec("INSERT INTO patients_new SELECT * FROM patients");
-        $conn->exec("DROP TABLE patients");
-        $conn->exec("ALTER TABLE patients_new RENAME TO patients");
-    }
+        bp VARCHAR(50),
+        temp VARCHAR(50),
+        pulse VARCHAR(50),
+        weight VARCHAR(50),
+        height VARCHAR(50),
+        token VARCHAR(50) NOT NULL,
+        status VARCHAR(50) DEFAULT 'waiting',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP NULL DEFAULT NULL,
+        spo2 INT,
+        patient_id VARCHAR(100)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS prescriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_id INTEGER NOT NULL,
-        doctor_id INTEGER,
-        doctor_name TEXT NOT NULL,
-        doctor_type TEXT,
-        consultation_fee REAL DEFAULT 0.00,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        patient_id INT NOT NULL,
+        doctor_id INT,
+        doctor_name VARCHAR(255) NOT NULL,
+        doctor_type VARCHAR(50),
+        consultation_fee DECIMAL(10,2) DEFAULT 0.00,
         diagnosis TEXT,
         prescription_text TEXT,
         medicines TEXT,
-        total_amount REAL DEFAULT 0.00,
-        status TEXT DEFAULT 'pending' CHECK(status IN ('pending','dispensed')),
+        total_amount DECIMAL(10,2) DEFAULT 0.00,
+        status VARCHAR(50) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        scan_fee REAL DEFAULT 0.00,
-        cost_amount REAL DEFAULT 0.00,
-        diagnosis_photo TEXT,
-        prescription_photo TEXT,
-        upt_card BOOLEAN DEFAULT 0,
+        scan_fee DECIMAL(10,2) DEFAULT 0.00,
+        cost_amount DECIMAL(10,2) DEFAULT 0.00,
+        diagnosis_photo VARCHAR(255),
+        prescription_photo VARCHAR(255),
+        upt_card TINYINT DEFAULT 0,
         injection_details TEXT,
         iv_details TEXT,
-        injection_cost REAL DEFAULT 0.00,
-        iv_cost REAL DEFAULT 0.00,
-        upt_cost REAL DEFAULT 0.00,
-        cash_amount REAL DEFAULT 0.00,
-        gpay_amount REAL DEFAULT 0.00,
-        paid_amount REAL DEFAULT 0.00,
-        balance_amount REAL DEFAULT 0.00,
-        discount_percent REAL DEFAULT 0.00,
-        scan_type TEXT,
+        injection_cost DECIMAL(10,2) DEFAULT 0.00,
+        iv_cost DECIMAL(10,2) DEFAULT 0.00,
+        upt_cost DECIMAL(10,2) DEFAULT 0.00,
+        cash_amount DECIMAL(10,2) DEFAULT 0.00,
+        gpay_amount DECIMAL(10,2) DEFAULT 0.00,
+        paid_amount DECIMAL(10,2) DEFAULT 0.00,
+        balance_amount DECIMAL(10,2) DEFAULT 0.00,
+        discount_percent DECIMAL(5,2) DEFAULT 0.00,
+        scan_type VARCHAR(100) DEFAULT '-',
         scan_notes TEXT,
-        phonepe_amount REAL DEFAULT 0.00,
-        bank_amount REAL DEFAULT 0.00,
-        upi_account TEXT,
-        account_id INTEGER,
-        FOREIGN KEY (patient_id) REFERENCES patients(id)
-    )");
+        phonepe_amount DECIMAL(10,2) DEFAULT 0.00,
+        bank_amount DECIMAL(10,2) DEFAULT 0.00,
+        upi_account VARCHAR(100) DEFAULT NULL,
+        account_id INT DEFAULT NULL,
+        prev_balance_cleared DECIMAL(10,2) DEFAULT 0.00,
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     $conn->exec("CREATE TABLE IF NOT EXISTS direct_sales (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_name TEXT NOT NULL,
-        mobile_number TEXT NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_name VARCHAR(255) NOT NULL,
+        mobile_number VARCHAR(50) NOT NULL,
         medicines TEXT,
         injection_details TEXT,
         iv_details TEXT,
-        injection_cost REAL DEFAULT 0.00,
-        iv_cost REAL DEFAULT 0.00,
-        upt_card BOOLEAN DEFAULT 0,
-        upt_cost REAL DEFAULT 0.00,
-        total_amount REAL DEFAULT 0.00,
-        discount_percent REAL DEFAULT 0.00,
-        cash_amount REAL DEFAULT 0.00,
-        gpay_amount REAL DEFAULT 0.00,
-        paid_amount REAL DEFAULT 0.00,
-        balance_amount REAL DEFAULT 0.00,
-        cost_amount REAL DEFAULT 0.00,
-        status TEXT DEFAULT 'completed' CHECK(status IN ('pending','completed')),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )");
+        injection_cost DECIMAL(10,2) DEFAULT 0.00,
+        iv_cost DECIMAL(10,2) DEFAULT 0.00,
+        upt_card TINYINT DEFAULT 0,
+        upt_cost DECIMAL(10,2) DEFAULT 0.00,
+        total_amount DECIMAL(10,2) DEFAULT 0.00,
+        discount_percent DECIMAL(5,2) DEFAULT 0.00,
+        cash_amount DECIMAL(10,2) DEFAULT 0.00,
+        gpay_amount DECIMAL(10,2) DEFAULT 0.00,
+        paid_amount DECIMAL(10,2) DEFAULT 0.00,
+        balance_amount DECIMAL(10,2) DEFAULT 0.00,
+        cost_amount DECIMAL(10,2) DEFAULT 0.00,
+        status VARCHAR(50) DEFAULT 'completed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        phonepe_amount DECIMAL(10,2) DEFAULT 0.00,
+        bank_amount DECIMAL(10,2) DEFAULT 0.00,
+        payment_history TEXT,
+        upi_account VARCHAR(100) DEFAULT NULL,
+        account_id INT DEFAULT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS inventory (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_code TEXT,
-        name TEXT NOT NULL,
-        category TEXT DEFAULT 'Tablet',
-        hsn_code TEXT,
-        batch_number TEXT NOT NULL,
-        mfg_date TEXT,
-        expiry_date TEXT,
-        mrp REAL DEFAULT 0.00,
-        purchase_price REAL DEFAULT 0.00,
-        selling_price REAL DEFAULT 0.00,
-        opening_stock INTEGER DEFAULT 0,
-        stock INTEGER DEFAULT 0,
-        min_stock INTEGER DEFAULT 0,
-        location TEXT,
-        tablets_per_strip INTEGER DEFAULT 0,
-        UNIQUE(name, batch_number)
-    )");
-
-    // Ensure doctor_id exists in patients and prescriptions
-    $stmt = $conn->query("PRAGMA table_info(patients)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('doctor_id', $cols)) {
-        $conn->exec("ALTER TABLE patients ADD COLUMN doctor_id INTEGER");
-    }
-
-    $stmt = $conn->query("PRAGMA table_info(prescriptions)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('doctor_id', $cols)) {
-        $conn->exec("ALTER TABLE prescriptions ADD COLUMN doctor_id INTEGER");
-    }
-    if (!in_array('prev_balance_cleared', $cols)) {
-        $conn->exec("ALTER TABLE prescriptions ADD COLUMN prev_balance_cleared REAL DEFAULT 0.00");
-    }
-
-    if (!in_array('discount_percent', $cols)) {
-        $conn->exec("ALTER TABLE prescriptions ADD COLUMN discount_percent REAL DEFAULT 0.00");
-    }
-
-    // Migration: Populate doctor_id from existing data if possible
-    $conn->exec("UPDATE patients SET doctor_id = (SELECT id FROM users WHERE users.display_name = patients.doctor_name OR users.username = patients.doctor_type LIMIT 1) WHERE doctor_id IS NULL");
-    $conn->exec("UPDATE prescriptions SET doctor_id = (SELECT id FROM users WHERE users.display_name = prescriptions.doctor_name OR users.username = prescriptions.doctor_type LIMIT 1) WHERE doctor_id IS NULL");
-
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        item_code VARCHAR(255),
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(100) DEFAULT 'Tablet',
+        hsn_code VARCHAR(100),
+        batch_number VARCHAR(255) NOT NULL,
+        mfg_date VARCHAR(100),
+        expiry_date VARCHAR(100),
+        mrp DECIMAL(10,2) DEFAULT 0.00,
+        purchase_price DECIMAL(10,2) DEFAULT 0.00,
+        selling_price DECIMAL(10,2) DEFAULT 0.00,
+        opening_stock INT DEFAULT 0,
+        stock INT DEFAULT 0,
+        min_stock INT DEFAULT 0,
+        location VARCHAR(255),
+        tablets_per_strip INT DEFAULT 0,
+        supplier_id INT,
+        UNIQUE KEY uq_inventory_name_batch (name, batch_number)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Seed default users if none exist
     $stmt = $conn->query("SELECT COUNT(*) FROM users");
     if ($stmt->fetchColumn() == 0) {
         $seed = [];
         
-        $pw_rec = getenv('DEFAULT_RECEPTION_PASSWORD');
-        if ($pw_rec) $seed[] = ['receptionist', $pw_rec, 'receptionist', null, 'Receptionist', null];
-        else error_log("Warning: DEFAULT_RECEPTION_PASSWORD missing. Receptionist account not created.");
+        $pw_rec = getenv('DEFAULT_RECEPTION_PASSWORD') ?: 'reception123';
+        $seed[] = ['receptionist', $pw_rec, 'receptionist', null, 'Receptionist', null];
         
-        $pw_doc = getenv('DEFAULT_DOCTOR_PASSWORD');
-        if ($pw_doc) {
-            $seed[] = ['dr.rasith', $pw_doc, 'doctor', 'Gent', 'Dr. Mohamed Rasith Sir', 'G'];
-            $seed[] = ['dr.basheera', $pw_doc, 'doctor', 'Lady', 'Dr. Jannathul Basheera Mam', 'L'];
-        } else {
-            error_log("Warning: DEFAULT_DOCTOR_PASSWORD missing. Doctor accounts not created.");
-        }
+        $pw_doc = getenv('DEFAULT_DOCTOR_PASSWORD') ?: '11';
+        $seed[] = ['dr.rasith', $pw_doc, 'doctor', 'Gent', 'Dr. Mohamed Rasith Sir', 'G'];
+        $seed[] = ['dr.basheera', $pw_doc, 'doctor', 'Lady', 'Dr. Jannathul Basheera Mam', 'L'];
         
-        $pw_pha = getenv('DEFAULT_PHARMACIST_PASSWORD');
-        if ($pw_pha) $seed[] = ['pharmacist', $pw_pha, 'pharmacist', null, 'Pharmacist', null];
-        else error_log("Warning: DEFAULT_PHARMACIST_PASSWORD missing. Pharmacist account not created.");
+        $pw_pha = getenv('DEFAULT_PHARMACIST_PASSWORD') ?: 'pharma123';
+        $seed[] = ['pharmacist', $pw_pha, 'pharmacist', null, 'Pharmacist', null];
         
-        $pw_adm = getenv('DEFAULT_ADMIN_PASSWORD');
-        if ($pw_adm) $seed[] = ['management', $pw_adm, 'management', null, 'Management Admin', null];
-        else error_log("Warning: DEFAULT_ADMIN_PASSWORD missing. Management Admin account not created.");
+        $pw_adm = getenv('DEFAULT_ADMIN_PASSWORD') ?: 'admin123';
+        $seed[] = ['management', $pw_adm, 'management', null, 'Management Admin', null];
 
         if (!empty($seed)) {
             $insert = $conn->prepare("INSERT INTO users (username, password, role, doctor_type, display_name, token_prefix) VALUES (?,?,?,?,?,?)");
@@ -362,72 +240,54 @@ function init_db()
     }
 
     $conn->exec("CREATE TABLE IF NOT EXISTS staff_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        education TEXT,
-        role TEXT,
-        salary REAL DEFAULT 0.00,
-        status TEXT DEFAULT 'Active',
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        education VARCHAR(255),
+        role VARCHAR(100),
+        salary DECIMAL(10,2) DEFAULT 0.00,
+        status VARCHAR(50) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_salary_paid_date TEXT
-    )");
-
-    // Migration: Check if last_salary_paid_date column exists
-    $stmt = $conn->query("PRAGMA table_info(staff_records)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('last_salary_paid_date', $cols)) {
-        $conn->exec("ALTER TABLE staff_records ADD COLUMN last_salary_paid_date TEXT");
-    }
+        last_salary_paid_date VARCHAR(100)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS staff_payments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        staff_id INTEGER NOT NULL,
-        payment_type TEXT CHECK(payment_type IN ('Salary', 'Advance', 'Bonus')),
-        payment_month TEXT,
-        amount REAL DEFAULT 0.00,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        staff_id INT NOT NULL,
+        payment_type VARCHAR(50) NOT NULL,
+        payment_month VARCHAR(50),
+        amount DECIMAL(10,2) DEFAULT 0.00,
         payment_date DATE,
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (staff_id) REFERENCES staff_records(id)
-    )");
+        FOREIGN KEY (staff_id) REFERENCES staff_records(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-    // Migration: Check if min_stock column exists in inventory table
-    $stmt = $conn->query("PRAGMA table_info(inventory)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('min_stock', $cols)) {
-        $conn->exec("ALTER TABLE inventory ADD COLUMN min_stock INTEGER DEFAULT 0");
-    }
     // Missing Agency and System Tables for Cold-Start
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, description TEXT, status TEXT DEFAULT 'Active')");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, company_name TEXT, phone TEXT, email TEXT, address TEXT, gst_number TEXT, whatsapp TEXT, dl_number TEXT, payment_type TEXT, total_purchase REAL DEFAULT 0.00, payment_status TEXT DEFAULT 'Not Paid', paid_amount REAL DEFAULT 0.00, pending_balance REAL DEFAULT 0.00, cash_amount REAL DEFAULT 0.00, gpay_amount REAL DEFAULT 0.00, city TEXT, state TEXT, pincode TEXT, status TEXT DEFAULT 'Active', outstanding_balance REAL DEFAULT 0.00, phonepe_amount REAL DEFAULT 0.00, bank_amount REAL DEFAULT 0.00, upi_account TEXT DEFAULT NULL)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_items (id INTEGER PRIMARY KEY AUTOINCREMENT, item_code TEXT, item_name TEXT NOT NULL, generic_name TEXT, brand_name TEXT, category TEXT, medicine_type TEXT, unit TEXT, batch_number TEXT NOT NULL, purchase_price REAL DEFAULT 0.00, selling_price REAL DEFAULT 0.00, gst REAL DEFAULT 0.00, opening_stock INTEGER DEFAULT 0, stock INTEGER DEFAULT 0, min_stock INTEGER DEFAULT 0, expiry_date TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, hsn_code TEXT, mfg_date TEXT, mrp REAL DEFAULT 0.00, discount REAL DEFAULT 0.00, manufacturer TEXT, supplier_id INTEGER, gst_percentage REAL DEFAULT 0.00, reorder_level INTEGER DEFAULT 0, rack_location TEXT, barcode TEXT, qr_code TEXT, UNIQUE(item_name, batch_number))");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_purchases (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER, invoice_number TEXT, purchase_date TEXT, sub_total REAL DEFAULT 0.00, gst_total REAL DEFAULT 0.00, grand_total REAL DEFAULT 0.00, image_path TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, payment_mode TEXT, transport_details TEXT, doctor_name TEXT, clinic_name TEXT, doctor_reg_no TEXT, contact_number TEXT, address TEXT, credit_days INTEGER DEFAULT 0, due_date TEXT, transport_name TEXT, vehicle_number TEXT, lr_number TEXT, transport_date TEXT, cgst_total REAL DEFAULT 0.00, sgst_total REAL DEFAULT 0.00, discount_total REAL DEFAULT 0.00, payment_status TEXT DEFAULT 'Pending', paid_amount REAL DEFAULT 0.00, balance_amount REAL DEFAULT 0.00, cash_amount REAL DEFAULT 0.00, gpay_amount REAL DEFAULT 0.00, upi_reference TEXT, transaction_id TEXT, payment_date TEXT, bank_name TEXT, due_amount REAL DEFAULT 0.00, outstanding_balance REAL DEFAULT 0.00, purchase_type TEXT, phonepe_amount REAL DEFAULT 0.00, bank_amount REAL DEFAULT 0.00, upi_account TEXT DEFAULT NULL, account_id INTEGER DEFAULT NULL, FOREIGN KEY (supplier_id) REFERENCES agency_suppliers(id))");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_purchase_items (id INTEGER PRIMARY KEY AUTOINCREMENT, purchase_id INTEGER, item_id INTEGER, quantity INTEGER DEFAULT 0, unit TEXT, purchase_rate REAL DEFAULT 0.00, gst REAL DEFAULT 0.00, total_amount REAL DEFAULT 0.00, free_qty INTEGER DEFAULT 0, discount REAL DEFAULT 0.00, hsn_code TEXT, generic_name TEXT, category TEXT, batch_number TEXT, mfg_date TEXT, expiry_date TEXT, mrp REAL DEFAULT 0.00, cgst REAL DEFAULT 0.00, sgst REAL DEFAULT 0.00, taxable_amount REAL DEFAULT 0.00, discount_percentage REAL DEFAULT 0.00, gst_percentage REAL DEFAULT 0.00, tax_amount REAL DEFAULT 0.00, FOREIGN KEY (purchase_id) REFERENCES agency_purchases(id), FOREIGN KEY (item_id) REFERENCES agency_items(id))");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_stock_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, quantity INTEGER, reason TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (item_id) REFERENCES agency_items(id))");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_stock_transfers (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, quantity INTEGER, to_location TEXT, transfer_date TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (item_id) REFERENCES agency_items(id))");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_ocr_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, file_path TEXT, extracted_data TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_purchase_returns (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER, purchase_id INTEGER, return_date TEXT, total_amount REAL DEFAULT 0.00, reason TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_return_items (id INTEGER PRIMARY KEY AUTOINCREMENT, return_id INTEGER, item_id INTEGER, quantity INTEGER, amount REAL DEFAULT 0.00)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_audit_trail (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, action TEXT, table_name TEXT, record_id INTEGER, old_value TEXT, new_value TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, details TEXT)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS agency_inventory_movements (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, movement_type TEXT, quantity INTEGER, reference_id INTEGER, reference_type TEXT, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (item_id) REFERENCES agency_items(id))");
-    $conn->exec("CREATE TABLE IF NOT EXISTS medicine_returns (id INTEGER PRIMARY KEY AUTOINCREMENT, return_date TEXT, return_time TEXT, patient_name TEXT, bill_number TEXT, medicine_name TEXT, returned_qty REAL, processed_by TEXT, reason TEXT, sale_type TEXT, sale_id INTEGER, patient_id INTEGER, unit_price REAL, return_amount REAL, total_refund_amount REAL, refund_payment_mode TEXT, return_type TEXT DEFAULT 'Single Tablet', account_id INTEGER DEFAULT NULL)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS upi_accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, account_name TEXT NOT NULL, short_name TEXT UNIQUE NOT NULL, bank_name TEXT, account_number TEXT, upi_id TEXT, notes TEXT, is_active INTEGER DEFAULT 1, account_holder_name TEXT DEFAULT NULL, ifsc_code TEXT DEFAULT NULL)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS system_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT)");
-    $conn->exec("CREATE TABLE IF NOT EXISTS whatsapp_backup_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, backup_date DATE NOT NULL UNIQUE, status TEXT NOT NULL, attempts INTEGER DEFAULT 1, last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, error_message TEXT, pdf_path TEXT)");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_categories (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) UNIQUE NOT NULL, description TEXT, status VARCHAR(50) DEFAULT 'Active') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_suppliers (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, company_name VARCHAR(255), phone VARCHAR(50), email VARCHAR(255), address TEXT, gst_number VARCHAR(100), whatsapp VARCHAR(50), dl_number VARCHAR(100), payment_type VARCHAR(100), total_purchase DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(50) DEFAULT 'Not Paid', paid_amount DECIMAL(10,2) DEFAULT 0.00, pending_balance DECIMAL(10,2) DEFAULT 0.00, cash_amount DECIMAL(10,2) DEFAULT 0.00, gpay_amount DECIMAL(10,2) DEFAULT 0.00, city VARCHAR(100), state VARCHAR(100), pincode VARCHAR(50), status VARCHAR(50) DEFAULT 'Active', outstanding_balance DECIMAL(10,2) DEFAULT 0.00, phonepe_amount DECIMAL(10,2) DEFAULT 0.00, bank_amount DECIMAL(10,2) DEFAULT 0.00, upi_account VARCHAR(100) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_items (id INT AUTO_INCREMENT PRIMARY KEY, item_code VARCHAR(255), item_name VARCHAR(255) NOT NULL, generic_name VARCHAR(255), brand_name VARCHAR(255), category VARCHAR(100), medicine_type VARCHAR(100), unit VARCHAR(100), batch_number VARCHAR(255) NOT NULL, purchase_price DECIMAL(10,2) DEFAULT 0.00, selling_price DECIMAL(10,2) DEFAULT 0.00, gst DECIMAL(10,2) DEFAULT 0.00, opening_stock INT DEFAULT 0, stock INT DEFAULT 0, min_stock INT DEFAULT 0, expiry_date VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, hsn_code VARCHAR(100), mfg_date VARCHAR(100), mrp DECIMAL(10,2) DEFAULT 0.00, discount DECIMAL(10,2) DEFAULT 0.00, manufacturer VARCHAR(255), supplier_id INT, gst_percentage DECIMAL(5,2) DEFAULT 0.00, reorder_level INT DEFAULT 0, rack_location VARCHAR(255), barcode VARCHAR(255), qr_code VARCHAR(255), UNIQUE KEY uq_agency_items_name_batch (item_name, batch_number)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_purchases (id INT AUTO_INCREMENT PRIMARY KEY, supplier_id INT, invoice_number VARCHAR(255), purchase_date VARCHAR(100), sub_total DECIMAL(10,2) DEFAULT 0.00, gst_total DECIMAL(10,2) DEFAULT 0.00, grand_total DECIMAL(10,2) DEFAULT 0.00, image_path VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, payment_mode VARCHAR(100), transport_details TEXT, doctor_name VARCHAR(255), clinic_name VARCHAR(255), doctor_reg_no VARCHAR(255), contact_number VARCHAR(50), address TEXT, credit_days INT DEFAULT 0, due_date VARCHAR(100), transport_name VARCHAR(255), vehicle_number VARCHAR(100), lr_number VARCHAR(100), transport_date VARCHAR(100), cgst_total DECIMAL(10,2) DEFAULT 0.00, sgst_total DECIMAL(10,2) DEFAULT 0.00, discount_total DECIMAL(10,2) DEFAULT 0.00, payment_status VARCHAR(100) DEFAULT 'Pending', paid_amount DECIMAL(10,2) DEFAULT 0.00, balance_amount DECIMAL(10,2) DEFAULT 0.00, cash_amount DECIMAL(10,2) DEFAULT 0.00, gpay_amount DECIMAL(10,2) DEFAULT 0.00, upi_reference VARCHAR(255), transaction_id VARCHAR(255), payment_date VARCHAR(100), bank_name VARCHAR(255), due_amount DECIMAL(10,2) DEFAULT 0.00, outstanding_balance DECIMAL(10,2) DEFAULT 0.00, purchase_type VARCHAR(100), phonepe_amount DECIMAL(10,2) DEFAULT 0.00, bank_amount DECIMAL(10,2) DEFAULT 0.00, upi_account VARCHAR(100) DEFAULT NULL, account_id INT DEFAULT NULL, FOREIGN KEY (supplier_id) REFERENCES agency_suppliers(id) ON DELETE SET NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_purchase_items (id INT AUTO_INCREMENT PRIMARY KEY, purchase_id INT, item_id INT, quantity INT DEFAULT 0, unit VARCHAR(100), purchase_rate DECIMAL(10,2) DEFAULT 0.00, gst DECIMAL(10,2) DEFAULT 0.00, total_amount DECIMAL(10,2) DEFAULT 0.00, free_qty INT DEFAULT 0, discount DECIMAL(10,2) DEFAULT 0.00, hsn_code VARCHAR(100), generic_name VARCHAR(255), category VARCHAR(100), batch_number VARCHAR(255), mfg_date VARCHAR(100), expiry_date VARCHAR(100), mrp DECIMAL(10,2) DEFAULT 0.00, cgst DECIMAL(10,2) DEFAULT 0.00, sgst DECIMAL(10,2) DEFAULT 0.00, taxable_amount DECIMAL(10,2) DEFAULT 0.00, discount_percentage DECIMAL(5,2) DEFAULT 0.00, gst_percentage DECIMAL(5,2) DEFAULT 0.00, tax_amount DECIMAL(10,2) DEFAULT 0.00, FOREIGN KEY (purchase_id) REFERENCES agency_purchases(id) ON DELETE CASCADE, FOREIGN KEY (item_id) REFERENCES agency_items(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_stock_adjustments (id INT AUTO_INCREMENT PRIMARY KEY, item_id INT, quantity INT, reason TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (item_id) REFERENCES agency_items(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_stock_transfers (id INT AUTO_INCREMENT PRIMARY KEY, item_id INT, quantity INT, to_location VARCHAR(255), transfer_date VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (item_id) REFERENCES agency_items(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_ocr_documents (id INT AUTO_INCREMENT PRIMARY KEY, file_path VARCHAR(255), extracted_data TEXT, status VARCHAR(50) DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_purchase_returns (id INT AUTO_INCREMENT PRIMARY KEY, supplier_id INT, purchase_id INT, return_date VARCHAR(100), total_amount DECIMAL(10,2) DEFAULT 0.00, reason TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_return_items (id INT AUTO_INCREMENT PRIMARY KEY, return_id INT, item_id INT, quantity INT, amount DECIMAL(10,2) DEFAULT 0.00) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_audit_trail (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action VARCHAR(255), table_name VARCHAR(255), record_id INT, old_value TEXT, new_value TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, details TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS agency_inventory_movements (id INT AUTO_INCREMENT PRIMARY KEY, item_id INT, movement_type VARCHAR(100), quantity INT, reference_id INT, reference_type VARCHAR(100), notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (item_id) REFERENCES agency_items(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS medicine_returns (id INT AUTO_INCREMENT PRIMARY KEY, return_date VARCHAR(100), return_time VARCHAR(100), patient_name VARCHAR(255), bill_number VARCHAR(100), medicine_name VARCHAR(255), returned_qty DECIMAL(10,2), processed_by VARCHAR(255), reason TEXT, sale_type VARCHAR(100), sale_id INT, patient_id INT, unit_price DECIMAL(10,2), return_amount DECIMAL(10,2), total_refund_amount DECIMAL(10,2), refund_payment_mode VARCHAR(100), return_type VARCHAR(100) DEFAULT 'Single Tablet', account_id INT DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS upi_accounts (id INT AUTO_INCREMENT PRIMARY KEY, account_name VARCHAR(255) NOT NULL, short_name VARCHAR(255) UNIQUE NOT NULL, bank_name VARCHAR(255), account_number VARCHAR(100), upi_id VARCHAR(255), notes TEXT, is_active TINYINT DEFAULT 1, account_holder_name VARCHAR(255) DEFAULT NULL, ifsc_code VARCHAR(100) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     // Ensure monitor user exists
     $stmt = $conn->query("SELECT COUNT(*) FROM users WHERE role='monitor'");
     if ($stmt->fetchColumn() == 0) {
-        $pw_mon = getenv('DEFAULT_MONITOR_PASSWORD');
-        if ($pw_mon) {
-            $stmt_mon = $conn->prepare("INSERT INTO users (username, password, role, display_name) VALUES (?, ?, 'monitor', 'TV Monitor')");
-            $stmt_mon->execute(['monitor', $pw_mon]);
-        } else {
-            error_log("Warning: DEFAULT_MONITOR_PASSWORD missing. Monitor account not created.");
-        }
+        $pw_mon = getenv('DEFAULT_MONITOR_PASSWORD') ?: '123';
+        $stmt_mon = $conn->prepare("INSERT INTO users (username, password, role, display_name) VALUES (?, ?, 'monitor', 'TV Monitor')");
+        $stmt_mon->execute(['monitor', $pw_mon]);
     }
 
-    $conn->exec("PRAGMA foreign_keys=ON");
+    $conn->exec("SET FOREIGN_KEY_CHECKS = 1");
 }
 
 /**
@@ -493,7 +353,7 @@ function generate_token($doctor_id)
     $prefix = $stmt->fetchColumn() ?: 'D';
     $prefix = strtoupper($prefix);
 
-    $stmt = $conn->prepare("SELECT token FROM patients WHERE doctor_id = ? AND DATE(created_at) = DATE('now', 'localtime')");
+    $stmt = $conn->prepare("SELECT token FROM patients WHERE doctor_id = ? AND DATE(created_at) = CURDATE()");
     $stmt->execute([$doctor_id]);
 
     $rows = $stmt->fetchAll();

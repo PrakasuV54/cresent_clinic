@@ -13,14 +13,14 @@ function run_auto_backup_check() {
     
     // Create logs table if not exists
     $conn->exec("CREATE TABLE IF NOT EXISTS whatsapp_backup_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         backup_date DATE NOT NULL UNIQUE,
-        status TEXT NOT NULL,
-        attempts INTEGER DEFAULT 1,
-        last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        status VARCHAR(50) NOT NULL,
+        attempts INT DEFAULT 1,
+        last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         error_message TEXT,
-        pdf_path TEXT
-    )");
+        pdf_path VARCHAR(255)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Get settings
     $settings = [];

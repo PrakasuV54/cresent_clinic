@@ -5,7 +5,7 @@
     "require": {
         "php": ">=8.1",
         "ext-pdo": "*",
-        "ext-pdo_sqlite": "*",
+        "ext-pdo_mysql": "*",
         "ext-curl": "*",
         "ext-gd": "*"
     },

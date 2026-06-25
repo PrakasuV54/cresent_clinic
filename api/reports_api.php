@@ -57,20 +57,20 @@ if ($action === 'get_reports') {
         $date_filter_agency = "purchase_date >= '$thirty_days_start'";
         $date_filter_returns = "return_date >= '$thirty_days_start'";
     } elseif ($period === 'monthly') {
-        $date_filter_patients = "strftime('%Y-%m', created_at) = '$this_month'";
-        $date_filter_sales = "strftime('%Y-%m', created_at) = '$this_month'";
-        $date_filter_agency = "strftime('%Y-%m', purchase_date) = '$this_month'";
-        $date_filter_returns = "strftime('%Y-%m', return_date) = '$this_month'";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y-%m') = '$this_month'";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y-%m') = '$this_month'";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y-%m') = '$this_month'";
+        $date_filter_returns = "DATE_FORMAT(return_date, '%Y-%m') = '$this_month'";
     } elseif ($period === 'last_month') {
-        $date_filter_patients = "strftime('%Y-%m', created_at) = '$last_month'";
-        $date_filter_sales = "strftime('%Y-%m', created_at) = '$last_month'";
-        $date_filter_agency = "strftime('%Y-%m', purchase_date) = '$last_month'";
-        $date_filter_returns = "strftime('%Y-%m', return_date) = '$last_month'";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y-%m') = '$last_month'";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y-%m') = '$last_month'";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y-%m') = '$last_month'";
+        $date_filter_returns = "DATE_FORMAT(return_date, '%Y-%m') = '$last_month'";
     } elseif ($period === 'yearly') {
-        $date_filter_patients = "strftime('%Y', created_at) = '$this_year'";
-        $date_filter_sales = "strftime('%Y', created_at) = '$this_year'";
-        $date_filter_agency = "strftime('%Y', purchase_date) = '$this_year'";
-        $date_filter_returns = "strftime('%Y', return_date) = '$this_year'";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y') = '$this_year'";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y') = '$this_year'";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y') = '$this_year'";
+        $date_filter_returns = "DATE_FORMAT(return_date, '%Y') = '$this_year'";
     } elseif ($period === 'custom' && $start_date && $end_date) {
         $date_filter_patients = "DATE(created_at) BETWEEN '$start_date' AND '$end_date'";
         $date_filter_sales = "DATE(created_at) BETWEEN '$start_date' AND '$end_date'";
@@ -509,20 +509,20 @@ if ($action === 'get_print_report') {
         $date_filter_agency = "purchase_date >= '$thirty_days_start'";
         $date_filter_returns = "return_date >= '$thirty_days_start'";
     } elseif ($period === 'monthly') {
-        $date_filter_patients = "strftime('%Y-%m', created_at) = '$this_month'";
-        $date_filter_sales = "strftime('%Y-%m', created_at) = '$this_month'";
-        $date_filter_agency = "strftime('%Y-%m', purchase_date) = '$this_month'";
-        $date_filter_returns = "strftime('%Y-%m', return_date) = '$this_month'";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y-%m') = '$this_month'";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y-%m') = '$this_month'";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y-%m') = '$this_month'";
+        $date_filter_returns = "DATE_FORMAT(return_date, '%Y-%m') = '$this_month'";
     } elseif ($period === 'last_month') {
-        $date_filter_patients = "strftime('%Y-%m', created_at) = '$last_month'";
-        $date_filter_sales = "strftime('%Y-%m', created_at) = '$last_month'";
-        $date_filter_agency = "strftime('%Y-%m', purchase_date) = '$last_month'";
-        $date_filter_returns = "strftime('%Y-%m', return_date) = '$last_month'";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y-%m') = '$last_month'";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y-%m') = '$last_month'";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y-%m') = '$last_month'";
+        $date_filter_returns = "DATE_FORMAT(return_date, '%Y-%m') = '$last_month'";
     } elseif ($period === 'yearly') {
-        $date_filter_patients = "strftime('%Y', created_at) = '$this_year'";
-        $date_filter_sales = "strftime('%Y', created_at) = '$this_year'";
-        $date_filter_agency = "strftime('%Y', purchase_date) = '$this_year'";
-        $date_filter_returns = "strftime('%Y', return_date) = '$this_year'";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y') = '$this_year'";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y') = '$this_year'";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y') = '$this_year'";
+        $date_filter_returns = "DATE_FORMAT(return_date, '%Y') = '$this_year'";
     } elseif ($period === 'custom' && $start_date && $end_date) {
         $date_filter_patients = "DATE(created_at) BETWEEN '$start_date' AND '$end_date'";
         $date_filter_sales = "DATE(created_at) BETWEEN '$start_date' AND '$end_date'";
@@ -858,29 +858,29 @@ if ($action === 'export_csv') {
     $date_filter_agency = "1=1";
     
     if ($period === 'today') {
-        $date_filter_patients = "DATE(created_at) = DATE('now', '+05:30')";
-        $date_filter_sales = "DATE(created_at) = DATE('now', '+05:30')";
-        $date_filter_agency = "purchase_date = strftime('%Y-%m-%d', 'now', '+05:30')";
+        $date_filter_patients = "DATE(created_at) = CURDATE()";
+        $date_filter_sales = "DATE(created_at) = CURDATE()";
+        $date_filter_agency = "purchase_date = CURDATE()";
     } elseif ($period === 'yesterday') {
-        $date_filter_patients = "DATE(created_at) = DATE('now', '-1 day', '+05:30')";
-        $date_filter_sales = "DATE(created_at) = DATE('now', '-1 day', '+05:30')";
-        $date_filter_agency = "purchase_date = strftime('%Y-%m-%d', 'now', '-1 day', '+05:30')";
+        $date_filter_patients = "DATE(created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+        $date_filter_sales = "DATE(created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+        $date_filter_agency = "purchase_date = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
     } elseif ($period === 'weekly') {
-        $date_filter_patients = "DATE(created_at) >= DATE('now', '-7 days', '+05:30')";
-        $date_filter_sales = "DATE(created_at) >= DATE('now', '-7 days', '+05:30')";
-        $date_filter_agency = "purchase_date >= strftime('%Y-%m-%d', 'now', '-7 days', '+05:30')";
+        $date_filter_patients = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+        $date_filter_sales = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+        $date_filter_agency = "purchase_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
     } elseif ($period === 'monthly') {
-        $date_filter_patients = "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', '+05:30')";
-        $date_filter_sales = "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', '+05:30')";
-        $date_filter_agency = "strftime('%Y-%m', purchase_date) = strftime('%Y-%m', 'now', '+05:30')";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')";
     } elseif ($period === 'last_month') {
-        $date_filter_patients = "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'start of month', '-1 month', '+05:30')";
-        $date_filter_sales = "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'start of month', '-1 month', '+05:30')";
-        $date_filter_agency = "strftime('%Y-%m', purchase_date) = strftime('%Y-%m', 'now', 'start of month', '-1 month', '+05:30')";
+        $date_filter_patients = "DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')";
+        $date_filter_sales = "DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')";
+        $date_filter_agency = "DATE_FORMAT(purchase_date, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')";
     } elseif ($period === 'yearly') {
-        $date_filter_patients = "strftime('%Y', created_at) = strftime('%Y', 'now', '+05:30')";
-        $date_filter_sales = "strftime('%Y', created_at) = strftime('%Y', 'now', '+05:30')";
-        $date_filter_agency = "strftime('%Y', purchase_date) = strftime('%Y', 'now', '+05:30')";
+        $date_filter_patients = "YEAR(created_at) = YEAR(CURDATE())";
+        $date_filter_sales = "YEAR(created_at) = YEAR(CURDATE())";
+        $date_filter_agency = "YEAR(purchase_date) = YEAR(CURDATE())";
     } elseif ($period === 'custom' && $start_date && $end_date) {
         $date_filter_patients = "DATE(created_at) BETWEEN '$start_date' AND '$end_date'";
         $date_filter_sales = "DATE(created_at) BETWEEN '$start_date' AND '$end_date'";

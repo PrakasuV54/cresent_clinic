@@ -29,7 +29,7 @@ class DatabaseSessionHandler implements SessionHandlerInterface {
     public function write(string $id, string $data): bool {
         try {
             $expires_at = time() + (int) ini_get('session.gc_maxlifetime');
-            $stmt = $this->conn->prepare("INSERT OR REPLACE INTO sessions (id, data, expires_at) VALUES (?, ?, ?)");
+            $stmt = $this->conn->prepare("REPLACE INTO sessions (id, data, expires_at) VALUES (?, ?, ?)");
             return $stmt->execute([$id, $data, $expires_at]);
         } catch (Exception $e) { return false; }
     }

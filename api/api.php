@@ -233,107 +233,81 @@ $input = json_decode(file_get_contents('php://input'), true);
 // Self-healing: Ensure required columns exist for Master Control
 try {
     $conn = get_db();
-    $stmt = $conn->query("PRAGMA table_info(users)");
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+    $stmt = $conn->query("SHOW COLUMNS FROM users");
+    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
     if (!in_array('details', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN details TEXT");
-    if (!in_array('photo_path', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN photo_path TEXT");
-    if (!in_array('specialization', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN specialization TEXT");
-    if (!in_array('admin_security_password', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN admin_security_password TEXT DEFAULT '123'");
-    if (!in_array('token_prefix', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN token_prefix TEXT");
-    if (!in_array('is_active', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1");
-    if (!in_array('doctor_registration_number', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN doctor_registration_number TEXT");
-
-    // Remove CHECK constraint from users table if it exists
-    $stmt = $conn->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'");
-    $table_sql = $stmt->fetchColumn();
-    if ($table_sql && strpos($table_sql, 'CHECK(role IN') !== false) {
-        $conn->exec("PRAGMA foreign_keys=off;");
-        $conn->exec("CREATE TABLE new_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            role TEXT NOT NULL,
-            doctor_type TEXT,
-            display_name TEXT,
-            details TEXT,
-            photo_path TEXT,
-            specialization TEXT,
-            token_prefix TEXT,
-            is_active INTEGER DEFAULT 1,
-            admin_security_password TEXT DEFAULT '123',
-            doctor_registration_number TEXT
-        );");
-        $conn->exec("INSERT INTO new_users (id, username, password, role, doctor_type, display_name, details, photo_path, specialization, admin_security_password, token_prefix, is_active, doctor_registration_number) SELECT id, username, password, role, doctor_type, display_name, details, photo_path, specialization, admin_security_password, token_prefix, is_active, doctor_registration_number FROM users;");
-        $conn->exec("DROP TABLE users;");
-        $conn->exec("ALTER TABLE new_users RENAME TO users;");
-        $conn->exec("PRAGMA foreign_keys=on;");
-    }
+    if (!in_array('photo_path', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN photo_path VARCHAR(255)");
+    if (!in_array('specialization', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN specialization VARCHAR(255)");
+    if (!in_array('admin_security_password', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN admin_security_password VARCHAR(255) DEFAULT '123'");
+    if (!in_array('token_prefix', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN token_prefix VARCHAR(50)");
+    if (!in_array('is_active', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN is_active TINYINT DEFAULT 1");
+    if (!in_array('doctor_registration_number', $cols)) $conn->exec("ALTER TABLE users ADD COLUMN doctor_registration_number VARCHAR(255)");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS staff_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        education TEXT,
-        role TEXT,
-        salary REAL DEFAULT 0.00,
-        status TEXT DEFAULT 'Active',
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        education VARCHAR(255),
+        role VARCHAR(100),
+        salary DECIMAL(10,2) DEFAULT 0.00,
+        status VARCHAR(50) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $conn->exec("CREATE TABLE IF NOT EXISTS medicine_returns (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        return_date TEXT,
-        return_time TEXT,
-        patient_name TEXT,
-        bill_number TEXT,
-        medicine_name TEXT,
-        returned_qty REAL,
-        processed_by TEXT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        return_date VARCHAR(100),
+        return_time VARCHAR(100),
+        patient_name VARCHAR(255),
+        bill_number VARCHAR(100),
+        medicine_name VARCHAR(255),
+        returned_qty DECIMAL(10,2),
+        processed_by VARCHAR(255),
         reason TEXT,
-        sale_type TEXT,
-        sale_id INTEGER
-    )");
+        sale_type VARCHAR(100),
+        sale_id INT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Self-healing: Ensure new columns exist in agency_purchases
-    $stmt_ap = $conn->query("PRAGMA table_info(agency_purchases)");
-    $cols_ap = $stmt_ap->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    if (!in_array('bank_amount', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN bank_amount REAL DEFAULT 0.00");
-    if (!in_array('upi_account', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN upi_account TEXT");
-    if (!in_array('account_id', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN account_id INTEGER");
+    $stmt_ap = $conn->query("SHOW COLUMNS FROM agency_purchases");
+    $cols_ap = $stmt_ap->fetchAll(PDO::FETCH_COLUMN, 0);
+    if (!in_array('phonepe_amount', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN phonepe_amount DECIMAL(10,2) DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN bank_amount DECIMAL(10,2) DEFAULT 0.00");
+    if (!in_array('upi_account', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN upi_account VARCHAR(100)");
+    if (!in_array('account_id', $cols_ap)) $conn->exec("ALTER TABLE agency_purchases ADD COLUMN account_id INT");
 
     // Self-healing: Ensure new columns exist in agency_suppliers
-    $stmt_as = $conn->query("PRAGMA table_info(agency_suppliers)");
-    $cols_as = $stmt_as->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    if (!in_array('bank_amount', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN bank_amount REAL DEFAULT 0.00");
-    if (!in_array('upi_account', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN upi_account TEXT");
-    if (!in_array('account_id', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN account_id INTEGER");
+    $stmt_as = $conn->query("SHOW COLUMNS FROM agency_suppliers");
+    $cols_as = $stmt_as->fetchAll(PDO::FETCH_COLUMN, 0);
+    if (!in_array('phonepe_amount', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN phonepe_amount DECIMAL(10,2) DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN bank_amount DECIMAL(10,2) DEFAULT 0.00");
+    if (!in_array('upi_account', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN upi_account VARCHAR(100)");
+    if (!in_array('account_id', $cols_as)) $conn->exec("ALTER TABLE agency_suppliers ADD COLUMN account_id INT");
 
     // Self-healing: Ensure new columns exist in direct_sales
-    $stmt_ds = $conn->query("PRAGMA table_info(direct_sales)");
-    $cols_ds = $stmt_ds->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    if (!in_array('bank_amount', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN bank_amount REAL DEFAULT 0.00");
+    $stmt_ds = $conn->query("SHOW COLUMNS FROM direct_sales");
+    $cols_ds = $stmt_ds->fetchAll(PDO::FETCH_COLUMN, 0);
+    if (!in_array('phonepe_amount', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN phonepe_amount DECIMAL(10,2) DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN bank_amount DECIMAL(10,2) DEFAULT 0.00");
     if (!in_array('payment_history', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN payment_history TEXT");
-    if (!in_array('upi_account', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN upi_account TEXT");
-    if (!in_array('account_id', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN account_id INTEGER");
+    if (!in_array('upi_account', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN upi_account VARCHAR(100)");
+    if (!in_array('account_id', $cols_ds)) $conn->exec("ALTER TABLE direct_sales ADD COLUMN account_id INT");
 
     // Self-healing: Ensure new columns exist in prescriptions
-    $stmt_pr = $conn->query("PRAGMA table_info(prescriptions)");
-    $cols_pr = $stmt_pr->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('phonepe_amount', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN phonepe_amount REAL DEFAULT 0.00");
-    if (!in_array('bank_amount', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN bank_amount REAL DEFAULT 0.00");
-    if (!in_array('discount_percent', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN discount_percent REAL DEFAULT 0.00");
-    if (!in_array('scan_type', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN scan_type TEXT");
+    $stmt_pr = $conn->query("SHOW COLUMNS FROM prescriptions");
+    $cols_pr = $stmt_pr->fetchAll(PDO::FETCH_COLUMN, 0);
+    if (!in_array('phonepe_amount', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN phonepe_amount DECIMAL(10,2) DEFAULT 0.00");
+    if (!in_array('bank_amount', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN bank_amount DECIMAL(10,2) DEFAULT 0.00");
+    if (!in_array('discount_percent', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN discount_percent DECIMAL(5,2) DEFAULT 0.00");
+    if (!in_array('scan_type', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN scan_type VARCHAR(100)");
     if (!in_array('scan_notes', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN scan_notes TEXT");
-    if (!in_array('upi_account', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN upi_account TEXT");
-    if (!in_array('account_id', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN account_id INTEGER");
+    if (!in_array('upi_account', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN upi_account VARCHAR(100)");
+    if (!in_array('account_id', $cols_pr)) $conn->exec("ALTER TABLE prescriptions ADD COLUMN account_id INT");
 
     // Self-healing: Ensure supplier_id exists in inventory
-    $stmt_inv = $conn->query("PRAGMA table_info(inventory)");
-    $cols_inv = $stmt_inv->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('supplier_id', $cols_inv)) $conn->exec("ALTER TABLE inventory ADD COLUMN supplier_id INTEGER");
+    $stmt_inv = $conn->query("SHOW COLUMNS FROM inventory");
+    $cols_inv = $stmt_inv->fetchAll(PDO::FETCH_COLUMN, 0);
+    if (!in_array('supplier_id', $cols_inv)) $conn->exec("ALTER TABLE inventory ADD COLUMN supplier_id INT");
 
 } catch (Exception $e) {}
 
@@ -403,7 +377,7 @@ if ($uri === '/api/register_patient' && $method === 'POST') {
         $num = (int)$manual_token_num;
         $token = sprintf("%s-%03d", $prefix, $num);
         
-        $stmt = $conn->prepare("SELECT 1 FROM patients WHERE token = ? AND DATE(created_at) = DATE('now', '+05:30')");
+        $stmt = $conn->prepare("SELECT 1 FROM patients WHERE token = ? AND DATE(created_at) = CURDATE()");
         $stmt->execute([$token]);
         if ($stmt->fetch()) {
             json_response(['success' => false, 'message' => 'Token already assigned.'], 400);
@@ -481,11 +455,11 @@ if ($uri === '/api/patients' && $method === 'GET') {
     $rows = [];
 
     if ($role === 'receptionist') {
-        $stmt = $conn->query("SELECT * FROM patients WHERE date(created_at) = date('now', '+05:30') ORDER BY created_at DESC");
+        $stmt = $conn->query("SELECT * FROM patients WHERE DATE(created_at) = CURDATE() ORDER BY created_at DESC");
         $rows = $stmt->fetchAll();
     } elseif ($role === 'doctor') {
         $doctor_id = $_SESSION['doctor_id'];
-        $stmt = $conn->prepare("SELECT * FROM patients WHERE doctor_id=? AND date(created_at) = date('now', '+05:30') ORDER BY token ASC");
+        $stmt = $conn->prepare("SELECT * FROM patients WHERE doctor_id=? AND DATE(created_at) = CURDATE() ORDER BY token ASC");
         $stmt->execute([$doctor_id]);
         $rows = $stmt->fetchAll();
     } elseif ($role === 'pharmacist') {
@@ -496,11 +470,11 @@ if ($uri === '/api/patients' && $method === 'GET') {
             pr.status as presc_status, pr.upt_card 
             FROM patients p JOIN prescriptions pr ON p.id=pr.patient_id 
             WHERE p.status IN ('prescribed','completed') 
-            AND date(p.created_at) = date('now', '+05:30') 
+            AND DATE(p.created_at) = CURDATE() 
             ORDER BY pr.created_at DESC");
         $rows = $stmt->fetchAll();
     } elseif ($role === 'monitor') {
-        $stmt = $conn->query("SELECT id, name, token, doctor_id, doctor_type, status FROM patients WHERE date(created_at) = date('now', '+05:30') AND status IN ('waiting', 'prescribed') ORDER BY created_at ASC");
+        $stmt = $conn->query("SELECT id, name, token, doctor_id, doctor_type, status FROM patients WHERE DATE(created_at) = CURDATE() AND status IN ('waiting', 'prescribed') ORDER BY created_at ASC");
         $rows = $stmt->fetchAll();
     }
 
@@ -707,12 +681,12 @@ if (($uri === '/api/add_medicines' || $uri === '/api/direct_pharmacy') && $metho
             $token = 'W' . rand(100, 999);
             
             $stmt = $conn->prepare("INSERT INTO patients (name, phone, age, gender, doctor_name, doctor_type, token, status, created_at, completed_at) 
-                                    VALUES (?, ?, 0, 'Other', 'Direct Pharmacy', 'Pharmacy', ?, 'completed', datetime('now', '+05:30'), datetime('now', '+05:30'))");
+                                    VALUES (?, ?, 0, 'Other', 'Direct Pharmacy', 'Pharmacy', ?, 'completed', NOW(), NOW())");
             $stmt->execute([$pat_name, $pat_phone, $token]);
             $patient_id = $conn->lastInsertId();
             
             $stmt = $conn->prepare("INSERT INTO prescriptions (patient_id, doctor_name, doctor_type, diagnosis, prescription_text, status, created_at) 
-                                    VALUES (?, 'Direct Pharmacy', 'Pharmacy', '-', '-', 'pending', datetime('now', '+05:30'))");
+                                    VALUES (?, 'Direct Pharmacy', 'Pharmacy', '-', '-', 'pending', NOW())");
             $stmt->execute([$patient_id]);
             $presc_id = $conn->lastInsertId();
             $input['prescription_id'] = $presc_id;
@@ -831,7 +805,7 @@ if (($uri === '/api/add_medicines' || $uri === '/api/direct_pharmacy') && $metho
         ]);
 
         // Mark patient status as completed and record checkout time
-        $stmt = $conn->prepare("UPDATE patients SET status='completed', completed_at=datetime('now', '+05:30') WHERE id=(SELECT patient_id FROM prescriptions WHERE id=?)");
+        $stmt = $conn->prepare("UPDATE patients SET status='completed', completed_at=NOW() WHERE id=(SELECT patient_id FROM prescriptions WHERE id=?)");
         $stmt->execute([$presc_id]);
 
         $stmt = $conn->prepare("SELECT p.*, pr.id as presc_id, pr.diagnosis, pr.prescription_text, pr.medicines,
@@ -1102,10 +1076,10 @@ if ($uri === '/api/direct_sales/list' && $method === 'GET') {
         $where = "WHERE date(created_at) >= ?";
         $params[] = date('Y-m-d', strtotime('monday this week'));
     } elseif ($filter === 'month') {
-        $where = "WHERE strftime('%Y-%m', created_at) = ?";
+        $where = "WHERE DATE_FORMAT(created_at, '%Y-%m') = ?";
         $params[] = date('Y-m');
     } elseif ($filter === 'custom' && $date_from && $date_to) {
-        $where = "WHERE date(created_at) BETWEEN ? AND ?";
+        $where = "WHERE DATE(created_at) BETWEEN ? AND ?";
         $params[] = $date_from;
         $params[] = $date_to;
     }
@@ -1689,13 +1663,13 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
     $start_date = $_GET['start_date'] ?? null;
     $end_date = $_GET['end_date'] ?? null;
     
-    $date_filter = "date(created_at) = date('now', '+05:30')";
+    $date_filter = "DATE(created_at) = CURDATE()";
     if ($period === 'yesterday') {
-        $date_filter = "date(created_at) = date('now', '-1 day', '+05:30')";
+        $date_filter = "DATE(created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
     } elseif ($period === 'weekly') {
-        $date_filter = "date(created_at) >= date('now', '-7 days', '+05:30')";
+        $date_filter = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
     } elseif ($period === 'monthly') {
-        $date_filter = "date(created_at) >= date('now', 'start of month', '+05:30')";
+        $date_filter = "DATE(created_at) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
     } elseif ($period === 'custom' && $start_date && $end_date) {
         $date_filter = "date(created_at) >= '$start_date' AND date(created_at) <= '$end_date'";
     }
