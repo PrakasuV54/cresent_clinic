@@ -1,6 +1,14 @@
 /**
  * Crescent Clinic and Scans — Frontend Logic
  */
+
+// Global fix for toFixed failing on string types returned from database
+if (!String.prototype.toFixed) {
+    String.prototype.toFixed = function (precision) {
+        return (parseFloat(this) || 0).toFixed(precision);
+    };
+}
+
 (function () {
     'use strict';
 
@@ -13,27 +21,56 @@
 
         // Mobile Menu Toggle logic
         const initMobileMenu = () => {
+            const sidebar = document.querySelector('.sidebar');
+            if (!sidebar) return; // Do not initialize mobile menu toggle if there is no sidebar (e.g. on login page)
+
+            // Insert mobile sidebar page title above the logout button in the footer
+            const badgeEl = sidebar.querySelector('.sidebar-header .badge') || sidebar.querySelector('.sidebar-header small') || sidebar.querySelector('.sidebar-header .badge-reception');
+            let badgeText = badgeEl ? badgeEl.textContent.trim() : '';
+            if (badgeText.toLowerCase().includes('admin') || badgeText.toLowerCase().includes('management')) {
+                badgeText = 'Management';
+            } else if (badgeText.toLowerCase().includes('reception')) {
+                badgeText = 'Reception';
+            } else if (badgeText.toLowerCase().includes('pharmacy') || badgeText.toLowerCase().includes('pharmacist')) {
+                badgeText = 'Pharmacy';
+            } else if (badgeText.toLowerCase().includes('doctor')) {
+                badgeText = 'Doctor';
+            }
+
+            const footer = sidebar.querySelector('.sidebar-footer');
+            if (footer && badgeText && !footer.querySelector('.mobile-sidebar-page-title')) {
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'mobile-sidebar-page-title';
+                titleDiv.textContent = badgeText;
+
+                const logoutBtn = footer.querySelector('a[href="/logout"]');
+                if (logoutBtn) {
+                    footer.insertBefore(titleDiv, logoutBtn);
+                } else {
+                    footer.appendChild(titleDiv);
+                }
+            }
+
             if (window.innerWidth <= 1024 && !document.querySelector('.mobile-menu-toggle')) {
                 const toggleBtn = document.createElement('button');
                 toggleBtn.className = 'mobile-menu-toggle';
                 toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
                 document.body.appendChild(toggleBtn);
-                
-                const sidebar = document.querySelector('.sidebar');
+
                 toggleBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (sidebar) sidebar.classList.toggle('mobile-open');
+                    sidebar.classList.toggle('mobile-open');
                 });
 
                 document.addEventListener('click', (e) => {
-                    if (sidebar && sidebar.classList.contains('mobile-open') && !sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+                    if (sidebar.classList.contains('mobile-open') && !sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
                         sidebar.classList.remove('mobile-open');
                     }
                 });
 
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.addEventListener('click', () => {
-                        if (sidebar) sidebar.classList.remove('mobile-open');
+                        sidebar.classList.remove('mobile-open');
                     });
                 });
             }
@@ -47,13 +84,35 @@
         } catch (e) {
             console.error('Failed to load UPI accounts initially', e);
         }
+
+        // Auto-clear zero/placeholder values on focus
+        document.addEventListener('focus', function (e) {
+            if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) {
+                const val = e.target.value.trim();
+                if (val === '0.00' || val === '0' || val === '000' || val === '0.0' || val === '00') {
+                    e.target.setAttribute('data-original-placeholder-val', val);
+                    e.target.value = '';
+                }
+            }
+        }, true);
+
+        document.addEventListener('blur', function (e) {
+            if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) {
+                if (e.target.value.trim() === '') {
+                    const origVal = e.target.getAttribute('data-original-placeholder-val');
+                    if (origVal) {
+                        e.target.value = origVal;
+                    }
+                }
+            }
+        }, true);
     });
 
     // ═══════════════════════════════════════════
     // LIVE SYNCHRONIZATION
     // ═══════════════════════════════════════════
     window.hospitalSyncChannel = new BroadcastChannel('hospital_live_sync');
-    
+
     window.hospitalSyncChannel.onmessage = (event) => {
         if (event.data && event.data.type === 'DATA_UPDATED') {
             if (typeof reloadCurrentSection === 'function') {
@@ -62,11 +121,11 @@
         }
     };
 
-    window.triggerLiveSync = function() {
+    window.triggerLiveSync = function () {
         window.hospitalSyncChannel.postMessage({ type: 'DATA_UPDATED' });
     };
-    
-    window.reloadCurrentSection = function() {
+
+    window.reloadCurrentSection = function () {
         if (typeof window.loadPatients === 'function') {
             window.loadPatients();
         }
@@ -132,32 +191,31 @@
             let errMsg = `HTTP ${res.status}`;
             try {
                 const errData = await res.json();
-                if(errData.error) errMsg = errData.error;
-            } catch(e) { if(e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
+                if (errData.error) errMsg = errData.error;
+            } catch (e) { if (e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
             throw new Error(errMsg);
         }
         const data = await res.json();
-        
+
         // Broadcast sync event if this was a mutation
         const method = opts.method ? opts.method.toUpperCase() : 'GET';
         if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
             window.triggerLiveSync();
         }
-        
+
         return data;
     }
 
     // Load global UPI accounts
     window.globalUpiAccounts = [];
-    window.loadGlobalUpiAccounts = async function() {
+    window.loadGlobalUpiAccounts = async function () {
         try {
             const upiRes = await api('/api/upi_accounts');
             window.globalUpiAccounts = upiRes.filter(a => a.is_active == 1);
-            
+
             const populateDropdown = (id) => {
                 const el = document.getElementById(id);
                 if (!el) {
-                    console.warn(`[UPI Accounts] Element not found: #${id} - dropdown will not be populated`);
                     return;
                 }
                 const optionsHtml = window.globalUpiAccounts.map(a => `<option value="${a.short_name || a.account_name}">${a.account_name} ${a.short_name ? `(${a.short_name})` : ''}</option>`).join('');
@@ -168,7 +226,7 @@
                     console.warn(`[UPI Accounts] No active accounts to populate in #${id}`);
                 }
             };
-            
+
             populateDropdown('payUpiAccount');
             populateDropdown('agPayUpiAccount');
             populateDropdown('rmRefundUpiAccount');
@@ -309,12 +367,12 @@
                 } catch (e) {
                     console.error('Failed to load doctors', e);
                 }
-                
+
                 doctorSel.addEventListener('change', function () {
                     if (window.updateTokenGrid) window.updateTokenGrid();
                 });
             }
-            
+
             // Load global UPI accounts
             await window.loadGlobalUpiAccounts();
 
@@ -736,7 +794,7 @@
             if (id === 'Prescriptions') {
                 if (btn && btn.id === 'navFilterAll') {
                     setPharmacyFilter('All', btn);
-                } else if(window.currentPharmacyFilter) {
+                } else if (window.currentPharmacyFilter) {
                     setPharmacyFilter(window.currentPharmacyFilter, null);
                 } else {
                     setPharmacyFilter('All', btn);
@@ -751,7 +809,7 @@
         window.currentPharmacyFilter = 'All';
         window.setPharmacyFilter = function (filter, btnElement) {
             window.currentPharmacyFilter = filter;
-            
+
             // Make sure the main section is active
             document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
             const target = document.getElementById('sectionPrescriptions');
@@ -842,7 +900,7 @@
                     if (!isNaN(dt.getTime())) {
                         return dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
                     }
-                } catch(e) { if(e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
+                } catch (e) { if (e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
                 return ts;
             };
 
@@ -868,10 +926,10 @@
 
     window.openMedicineModal = async function (prescId, name, diag, presc) {
         currentPrescId = prescId;
-        
+
         // Ensure UPI accounts are loaded before showing form
         await window.loadGlobalUpiAccounts();
-        
+
         $('#medModalPatient').textContent = name;
         $('#medModalDiag').textContent = diag || '-';
         $('#medModalPresc').textContent = presc || '-';
@@ -933,7 +991,7 @@
                 // Sync Injection
                 const injRowsContainer = $('#pharmacyInjectionRows');
                 if (injRowsContainer) injRowsContainer.innerHTML = '';
-                
+
                 if (patient.injection_details && patient.injection_details !== '') {
                     $('#pharmacyCheckInjection').checked = true;
                     $('#pharmacyInjectionInputs').style.display = 'block';
@@ -993,7 +1051,7 @@
                     $('#medModalUPTCost').value = 0;
                 }
             }
-        } catch(e) { if(e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
+        } catch (e) { if (e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
 
         if ($('#manualPendingAmount')) $('#manualPendingAmount').value = '';
         if ($('#applyDiscountCheck')) {
@@ -1016,7 +1074,7 @@
         openModal('medicineModal');
     };
 
-        window.togglePayInputs = async function () {
+    window.togglePayInputs = async function () {
         const cCash = $('#payCashCheck').checked;
         const cGpay = $('#payGPayCheck').checked;
 
@@ -1156,8 +1214,8 @@
         row.style.gap = '10px';
         row.style.marginBottom = '10px';
         row.style.alignItems = 'end';
-                const injId = 'injName_' + Date.now() + Math.floor(Math.random()*1000);
-                row.innerHTML = `
+        const injId = 'injName_' + Date.now() + Math.floor(Math.random() * 1000);
+        row.innerHTML = `
             <div class="form-group" style="margin:0; position:relative;">
                 <label style="font-size: 0.65rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Injection Name</label>
                 <input type="text" placeholder="Enter injection name" class="inj-name" id="${injId}" autocomplete="off" oninput="searchInventoryCategory('Injection', this)">
@@ -1169,8 +1227,8 @@
             </div>
             <button type="button" class="btn-remove-med" onclick="this.parentElement.remove();updateGrandTotal();" style="margin-bottom: 8px;">✕</button>
         `;
-        
-        row.querySelector('.inj-name').addEventListener('keydown', function(e) {
+
+        row.querySelector('.inj-name').addEventListener('keydown', function (e) {
             const suggBox = row.querySelector('.med-suggestions');
             if (suggBox.style.display === 'block') {
                 const items = suggBox.querySelectorAll('.med-sugg-item');
@@ -1203,14 +1261,14 @@
                 row.querySelector('.inj-cost').focus();
             }
         });
-        
+
         row.querySelector('.inj-cost').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { 
-                e.preventDefault(); 
-                addPharmacyInjectionRow(); 
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addPharmacyInjectionRow();
             }
         });
-        
+
         container.appendChild(row);
         setTimeout(() => { row.querySelector('.inj-name').focus(); }, 10);
     };
@@ -1243,14 +1301,14 @@
                     const stockWarn = item.stock <= (item.min_stock || 0) ? ' ⚠️ LOW' : '';
                     const activeStyle = idx === 0 ? 'background:var(--bg-hover);' : '';
                     const activeClass = idx === 0 ? 'active-sugg' : '';
-                    
+
                     let cat = (item.category || '').toUpperCase();
                     let nameUpper = (item.name || '').toUpperCase();
-                    
+
                     let priceLabel = '';
                     let stockLabel = '';
                     let extraLabel = '';
-                    
+
                     let isTablet = cat.includes('TAB') || cat.includes('CAP') || nameUpper.includes('TAB') || nameUpper.includes('CAP');
                     let isSyrup = cat.includes('SYP') || cat.includes('SYRUP') || nameUpper.includes('SYP') || nameUpper.includes('SYRUP');
                     let isInjection = cat.includes('INJ') || nameUpper.includes('INJ');
@@ -1269,26 +1327,26 @@
                         let stockText = strips + ' Strips';
                         if (loose > 0) stockText += ` + ${loose} Tabs`;
                         stockText += stockWarn;
-                        
-                        priceLabel = `Price: ₹${parseFloat(item.selling_price || 0).toFixed(2)} / Strip`;
-                        stockLabel = `Stock: ${stockText}`;
-                        extraLabel = `Pack: ${tps} Tablets / Strip`;
+
+                        priceLabel = `MRP : ₹${parseFloat(item.mrp || item.selling_price || 0).toFixed(2)} / Strip`;
+                        stockLabel = `Stock : ${stockText}`;
+                        extraLabel = `Pack : ${tps} Tablets / Strip`;
                     } else if (isSyrup) {
-                        priceLabel = `Price: ₹${parseFloat(item.selling_price || 0).toFixed(2)} / Bottle`;
-                        stockLabel = `Stock: ${item.stock} Bottles${stockWarn}`;
-                        extraLabel = `Volume: ${extText}`;
+                        priceLabel = `MRP : ₹${parseFloat(item.mrp || item.selling_price || 0).toFixed(2)} / Bottle`;
+                        stockLabel = `Stock : ${item.stock} Bottles${stockWarn}`;
+                        extraLabel = `Volume : ${extText}`;
                     } else if (isInjection) {
-                        priceLabel = `Price: ₹${parseFloat(item.selling_price || 0).toFixed(2)} / Vial`;
-                        stockLabel = `Stock: ${item.stock} Vials${stockWarn}`;
-                        extraLabel = `Volume: ${extText}`;
+                        priceLabel = `MRP : ₹${parseFloat(item.mrp || item.selling_price || 0).toFixed(2)} / Vial`;
+                        stockLabel = `Stock : ${item.stock} Vials${stockWarn}`;
+                        extraLabel = `Volume : ${extText}`;
                     } else if (isOintment) {
-                        priceLabel = `Price: ₹${parseFloat(item.selling_price || 0).toFixed(2)} / Tube`;
-                        stockLabel = `Stock: ${item.stock} Tubes${stockWarn}`;
-                        extraLabel = `Weight: ${extText}`;
+                        priceLabel = `MRP : ₹${parseFloat(item.mrp || item.selling_price || 0).toFixed(2)} / Tube`;
+                        stockLabel = `Stock : ${item.stock} Tubes${stockWarn}`;
+                        extraLabel = `Weight : ${extText}`;
                     } else if (isPowder) {
-                        priceLabel = `Price: ₹${parseFloat(item.selling_price || 0).toFixed(2)} / Jar`;
-                        stockLabel = `Stock: ${item.stock} Jars${stockWarn}`;
-                        extraLabel = `Weight: ${extText}`;
+                        priceLabel = `MRP : ₹${parseFloat(item.mrp || item.selling_price || 0).toFixed(2)} / Jar`;
+                        stockLabel = `Stock : ${item.stock} Jars${stockWarn}`;
+                        extraLabel = `Weight : ${extText}`;
                     } else {
                         let catName = item.category ? item.category : 'Unit';
                         // Keep original capitalization but add 's' if needed
@@ -1296,10 +1354,10 @@
                         if (!pluralCat.toLowerCase().endsWith('s')) {
                             pluralCat += 's';
                         }
-                        
-                        priceLabel = `Price: ₹${parseFloat(item.selling_price || 0).toFixed(2)} / ${catName}`;
-                        stockLabel = `Stock: ${item.stock} ${pluralCat}${stockWarn}`;
-                        extraLabel = `Pack: ${item.tablets_per_strip || 1} ${pluralCat} / Pack`;
+
+                        priceLabel = `MRP : ₹${parseFloat(item.mrp || item.selling_price || 0).toFixed(2)} / ${catName}`;
+                        stockLabel = `Stock : ${item.stock} ${pluralCat}${stockWarn}`;
+                        extraLabel = `Pack : ${item.tablets_per_strip || 1} ${pluralCat} / Pack`;
                     }
 
                     return `
@@ -1307,16 +1365,19 @@
                          onmouseenter="this.parentElement.querySelectorAll('.med-sugg-item').forEach(i => {i.classList.remove('active-sugg'); i.style.background=''}); this.classList.add('active-sugg'); this.style.background='var(--bg-hover)';"
                          onmouseleave="this.classList.remove('active-sugg'); this.style.background=''"
                          onclick="selectMedicine(this, '${item.name.replace(/'/g, "\\'")}', ${item.selling_price}, ${item.id}, ${item.tablets_per_strip || 0})">
-                        <div style="font-weight:600; color:var(--text-primary); margin-bottom:3px;">${item.name}</div>
-                        ${item.agency_name ? `<div style="font-size:0.8em; color:var(--text-secondary); margin-bottom:4px;">Supplier : ${item.agency_name}</div>` : ''}
+                        <div style="font-weight:700; color:var(--text-primary); margin-bottom:2px; font-size:0.95em; letter-spacing:0.02em;">${item.name}</div>
+                        ${item.generic_name ? `<div style="font-size:0.78em; color:#6366f1; font-style:italic; margin-bottom:4px; font-weight:500;">Generic: ${item.generic_name}</div>` : ''}
+                        ${item.agency_name ? `<div style="font-size:0.8em; color:var(--text-secondary); margin-bottom:4px;">Agency : ${item.agency_name}</div>` : ''}
                         <div style="font-size:0.8em; color:var(--text-secondary); margin-bottom:4px; display:flex; flex-direction:column; gap:2px;">
-                            <span>Batch No: ${batchLabel}</span>
-                            <span>Expiry: ${expText}</span>
+                            <span>Batch No : ${batchLabel}</span>
+                            <span>Expiry : ${expText}</span>
                         </div>
-                        <div style="font-size:0.78rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
+                        <div style="font-size:0.78rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px;">
                             <span>${priceLabel}</span>
                             <span>${stockLabel}</span>
                             <span>${extraLabel}</span>
+                            ${item.row_location ? `<span>Row : ${item.row_location}</span>` : ''}
+                            ${item.col_location ? `<span>Column : ${item.col_location}</span>` : ''}
                         </div>
                     </div>`;
                 }).join('');
@@ -1426,7 +1487,9 @@
                          onclick="selectInventoryCategoryItem('${category}', '${item.name.replace(/'/g, "\\'")}', ${price}, '${inputEl.id}')">
                         <div style="font-weight:600; margin-bottom:3px;">${item.name}</div>
                           ${item.agency_name ? `<div style="font-size:0.8em; color:var(--text-secondary); margin-bottom:4px;">${item.agency_name}</div>` : ''}
-                        <div style="font-size:0.78rem; color:var(--text-secondary);">MRP: ₹${price.toFixed(2)} | Stock: ${item.stock}</div>
+                        <div style="font-size:0.78rem; color:var(--text-secondary);">MRP: ₹${price.toFixed(2)} | Stock: ${item.stock}
+                            ${(item.row_location || item.col_location) ? ' | <span style="color:#6366f1;font-weight:600;">&#128205; Row: ' + (item.row_location || '-') + ' | Col: ' + (item.col_location || '-') + '</span>' : ''}
+                        </div>
                     </div>`;
                 }).join('');
                 suggBox.style.display = 'block';
@@ -1464,10 +1527,10 @@
             if (typeof updateGrandTotal === 'function') updateGrandTotal();
         }
     };
-    
+
     // Auto-fill direct customer name by phone
     let phoneLookupTimeout;
-    window.checkDirectCustomerPhone = function(phone) {
+    window.checkDirectCustomerPhone = function (phone) {
         if (phone.length >= 10) {
             clearTimeout(phoneLookupTimeout);
             phoneLookupTimeout = setTimeout(async () => {
@@ -1480,7 +1543,7 @@
                             toast('Customer found, name auto-filled', 'success');
                         }
                     }
-                } catch(e) { console.error(e); }
+                } catch (e) { console.error(e); }
             }, 500);
         }
     };
@@ -1533,12 +1596,12 @@
 
         const consultationFee = parseFloat($('#medModalFee').value) || 0;
         const scanFee = parseFloat($('#medModalScan').value) || 0;
-        
+
         let injectionCost = 0;
         if ($('#pharmacyCheckInjection') && $('#pharmacyCheckInjection').checked) {
             $$('#pharmacyInjectionRows .inj-cost').forEach(el => { injectionCost += parseFloat(el.value) || 0; });
         }
-        
+
         const uptCost = ($('#pharmacyCheckUPT') && $('#pharmacyCheckUPT').checked) ? (parseFloat($('#medModalUPTCost').value) || 0) : 0;
 
         const subtotalBill = medTotal + consultationFee + scanFee + injectionCost + uptCost;
@@ -1778,7 +1841,7 @@
                         p.completed_at = res.data.completed_at;
                         p.presc_id = res.data.presc_id || currentPrescId;
                     }
-                    
+
                     // Call the existing WhatsApp Web/Share link workflow
                     window.sendWhatsAppImage(p, waWin);
                 }
@@ -1794,10 +1857,10 @@
 
     window.openDirectPharmacy = async function () {
         currentPrescId = 'direct';
-        
+
         // Ensure UPI accounts are loaded before showing form
         await window.loadGlobalUpiAccounts();
-        
+
         $('#medModalPatient').textContent = 'Direct Medicine Sale';
         $('#medModalDiag').textContent = '-';
         $('#medModalPresc').textContent = '-';
@@ -1847,7 +1910,7 @@
         if ($('#payCashAmount')) $('#payCashAmount').value = 0;
         if ($('#payGPayAmount')) $('#payGPayAmount').value = 0;
         if ($('#payPhonePeAmount')) $('#payPhonePeAmount').value = 0;
-        
+
         const balEl = $('#balanceAmount');
         if (balEl) {
             balEl.setAttribute('data-val', '0.00');
@@ -1898,10 +1961,10 @@
                 medsHtml = `<table class="data-table" style="margin-top:12px;">
                     <thead><tr><th>#</th><th>Medicine</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
                     <tbody>${medicines.map((m, i) => {
-                        const retQty = parseFloat(m.returned_qty) || 0;
-                        const qtyHtml = retQty > 0 ? `${m.qty} <span style="color:var(--danger);font-size:0.8rem;">(-${retQty})</span>` : m.qty;
-                        return `<tr><td>${i + 1}</td><td>${m.name}</td><td>${qtyHtml}</td><td>₹${(parseFloat(m.unit_price) || 0).toFixed(2)}</td><td>₹${(parseFloat(m.amount) || 0).toFixed(2)}</td></tr>`;
-                    }).join('')}</tbody>
+                    const retQty = parseFloat(m.returned_qty) || 0;
+                    const qtyHtml = retQty > 0 ? `${m.qty} <span style="color:var(--danger);font-size:0.8rem;">(-${retQty})</span>` : m.qty;
+                    return `<tr><td>${i + 1}</td><td>${m.name}</td><td>${qtyHtml}</td><td>₹${(parseFloat(m.unit_price) || 0).toFixed(2)}</td><td>₹${(parseFloat(m.amount) || 0).toFixed(2)}</td></tr>`;
+                }).join('')}</tbody>
                 </table>
                 <div class="total-row" style="font-size:0.9rem; padding: 8px 0; border: none; margin: 0;"><span>Medicines Total:</span><span>₹${total.toFixed(2)}</span></div>`;
             }
@@ -1950,7 +2013,7 @@
                 <div id="returnHistoryDiv_PR_${p.id}"></div>
             `;
             openModal('detailModal');
-            
+
             api(`/api/returns_history?sale_id=${p.id}&sale_type=prescription`).then(returns => {
                 if (returns && returns.length > 0) {
                     const div = document.getElementById('returnHistoryDiv_PR_' + p.id);
@@ -1958,7 +2021,7 @@
                         renderReturnTimeline(div, returns, grandTotal, paidAmt);
                     }
                 }
-            }).catch(e => {});
+            }).catch(e => { });
         } catch (err) {
             console.error('viewDetail Error:', err);
             toast('Could not load details', 'error');
@@ -1967,7 +2030,7 @@
 
     window.loadDirectSales = async function (filter = 'today', btn = null) {
         if (btn) {
-            ['dsPBtnToday','dsPBtnYesterday'].forEach(id => {
+            ['dsPBtnToday', 'dsPBtnYesterday'].forEach(id => {
                 const b = document.getElementById(id);
                 if (b) { b.style.borderColor = ''; b.style.color = ''; b.style.background = ''; }
             });
@@ -1993,11 +2056,11 @@
                     ? '<span class="badge" style="background:var(--success-bg,#d1fae5);color:var(--success);">Paid</span>'
                     : '<span class="badge" style="background:#fff1f2;color:var(--danger);">Pending</span>';
                 const medicines = r.medicines || [];
-                const injCost   = parseFloat(r.injection_cost) || 0;
-                const ivCost    = parseFloat(r.iv_cost) || 0;
-                const uptCost   = parseFloat(r.upt_cost) || 0;
+                const injCost = parseFloat(r.injection_cost) || 0;
+                const ivCost = parseFloat(r.iv_cost) || 0;
+                const uptCost = parseFloat(r.upt_cost) || 0;
                 let subtotal = medicines.reduce((s, m) => s + (parseFloat(m.amount) || 0), 0) + injCost + ivCost + uptCost;
-                const disc   = parseFloat(r.discount_percent) || 0;
+                const disc = parseFloat(r.discount_percent) || 0;
                 if (disc > 0) subtotal = subtotal - subtotal * (disc / 100);
 
                 return `<tr>
@@ -2007,13 +2070,13 @@
                     <td>${r.mobile_number || '-'}</td>
                     <td>₹${subtotal.toFixed(2)}</td>
                     <td>${statusBadge}</td>
-                    <td><button class="btn btn-outline btn-sm" onclick='viewDirectSaleDetailP(${JSON.stringify(r).replace(/'/g,"&apos;")})'>View</button></td>
+                    <td><button class="btn btn-outline btn-sm" onclick='viewDirectSaleDetailP(${JSON.stringify(r).replace(/'/g, "&apos;")})'>View</button></td>
                 </tr>`;
             }).join('');
-        } catch(e) { toast('Failed to load direct sales', 'error'); }
+        } catch (e) { toast('Failed to load direct sales', 'error'); }
     };
 
-    window.viewDirectSaleDetailP = function(sale) {
+    window.viewDirectSaleDetailP = function (sale) {
         window.currentReturnContext = {
             sale_type: 'direct_sale',
             sale_id: sale.id,
@@ -2026,49 +2089,49 @@
         };
 
         const medicines = sale.medicines || [];
-        const injCost   = parseFloat(sale.injection_cost) || 0;
-        const ivCost    = parseFloat(sale.iv_cost) || 0;
-        const uptCost   = parseFloat(sale.upt_cost) || 0;
-        const disc      = parseFloat(sale.discount_percent) || 0;
-        const cashAmt   = parseFloat(sale.cash_amount) || 0;
-        const gpayAmt   = parseFloat(sale.gpay_amount) || 0;
+        const injCost = parseFloat(sale.injection_cost) || 0;
+        const ivCost = parseFloat(sale.iv_cost) || 0;
+        const uptCost = parseFloat(sale.upt_cost) || 0;
+        const disc = parseFloat(sale.discount_percent) || 0;
+        const cashAmt = parseFloat(sale.cash_amount) || 0;
+        const gpayAmt = parseFloat(sale.gpay_amount) || 0;
         const phonepeAmt = parseFloat(sale.phonepe_amount) || 0;
-        const bankAmt   = parseFloat(sale.bank_amount) || 0;
-        const paidAmt   = parseFloat(sale.paid_amount) || 0;
-        const balAmt    = parseFloat(sale.balance_amount) || 0;
-        const dt        = sale.created_at ? sale.created_at.replace('T', ' ').substring(0, 16) : '-';
+        const bankAmt = parseFloat(sale.bank_amount) || 0;
+        const paidAmt = parseFloat(sale.paid_amount) || 0;
+        const balAmt = parseFloat(sale.balance_amount) || 0;
+        const dt = sale.created_at ? sale.created_at.replace('T', ' ').substring(0, 16) : '-';
 
         let medTotal = medicines.reduce((s, m) => s + (parseFloat(m.amount) || 0), 0);
         let subtotal = medTotal + injCost + ivCost + uptCost;
-        let discAmt  = subtotal * (disc / 100);
-        let grand    = subtotal - discAmt;
+        let discAmt = subtotal * (disc / 100);
+        let grand = subtotal - discAmt;
 
         let medsHtml = '';
         if (medicines.length > 0) {
             medsHtml = `<table class="data-table" style="margin-bottom:10px;">
                 <thead><tr><th>#</th><th>Medicine</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr></thead>
                 <tbody>${medicines.map((m, i) => {
-                    const retQty = parseFloat(m.returned_qty) || 0;
-                    const qtyHtml = retQty > 0 ? `${m.qty} <span style="color:var(--danger);font-size:0.8rem;">(-${retQty})</span>` : m.qty;
-                    return `<tr>
-                    <td>${i+1}</td>
+                const retQty = parseFloat(m.returned_qty) || 0;
+                const qtyHtml = retQty > 0 ? `${m.qty} <span style="color:var(--danger);font-size:0.8rem;">(-${retQty})</span>` : m.qty;
+                return `<tr>
+                    <td>${i + 1}</td>
                     <td>${m.name}</td>
                     <td>${qtyHtml}</td>
-                    <td>₹${(parseFloat(m.unit_price)||0).toFixed(2)}</td>
-                    <td>₹${(parseFloat(m.amount)||0).toFixed(2)}</td>
+                    <td>₹${(parseFloat(m.unit_price) || 0).toFixed(2)}</td>
+                    <td>₹${(parseFloat(m.amount) || 0).toFixed(2)}</td>
                 </tr>`;
-                }).join('')}</tbody>
+            }).join('')}</tbody>
             </table>`;
         }
 
         let extrasHtml = '';
         if (injCost > 0) extrasHtml += `<div class="total-row" style="font-size:0.9rem;padding:6px 0;border:none;"><span>Injection:</span><span>₹${injCost.toFixed(2)}</span></div>`;
-        if (ivCost  > 0) extrasHtml += `<div class="total-row" style="font-size:0.9rem;padding:6px 0;border:none;"><span>IV Fluid:</span><span>₹${ivCost.toFixed(2)}</span></div>`;
+        if (ivCost > 0) extrasHtml += `<div class="total-row" style="font-size:0.9rem;padding:6px 0;border:none;"><span>IV Fluid:</span><span>₹${ivCost.toFixed(2)}</span></div>`;
         if (uptCost > 0) extrasHtml += `<div class="total-row" style="font-size:0.9rem;padding:6px 0;border:none;"><span>UPT Card:</span><span>₹${uptCost.toFixed(2)}</span></div>`;
-        if (disc > 0)    extrasHtml += `<div class="total-row" style="font-size:0.9rem;padding:6px 0;border:none;color:var(--danger);"><span>Discount (${disc}%):</span><span>-₹${discAmt.toFixed(2)}</span></div>`;
+        if (disc > 0) extrasHtml += `<div class="total-row" style="font-size:0.9rem;padding:6px 0;border:none;color:var(--danger);"><span>Discount (${disc}%):</span><span>-₹${discAmt.toFixed(2)}</span></div>`;
 
         const paymentMode = [
-            cashAmt > 0 ? `Cash ₹${cashAmt.toFixed(2)}` : '', 
+            cashAmt > 0 ? `Cash ₹${cashAmt.toFixed(2)}` : '',
             gpayAmt > 0 ? `GPay ₹${gpayAmt.toFixed(2)}` : '',
             phonepeAmt > 0 ? `PhonePe ₹${phonepeAmt.toFixed(2)}` : '',
             bankAmt > 0 ? `Bank ₹${bankAmt.toFixed(2)}` : ''
@@ -2086,7 +2149,7 @@
                     </table>
                 </div>`;
             }
-        } catch(e) {}
+        } catch (e) { }
 
         const clearBtnHtml = balAmt > 0 ? `<div style="margin-top:16px; text-align:right;"><button class="btn btn-warning" onclick="openPendingPaymentModal(${sale.id}, ${balAmt})">Clear Pending Payment</button></div>` : '';
 
@@ -2095,7 +2158,7 @@
                 <div><div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:2px;">Customer Name</div><div style="font-weight:600;">${sale.customer_name}</div></div>
                 <div><div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:2px;">Mobile</div><div style="font-weight:600;">${sale.mobile_number || '-'}</div></div>
                 <div><div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:2px;">Date & Time</div><div>${dt}</div></div>
-                <div><div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:2px;">Status</div><div style="font-weight:600; color:${sale.status==='completed'?'var(--success)':'var(--danger)'};">${sale.status === 'completed' ? 'Paid' : 'Pending'}</div></div>
+                <div><div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:2px;">Status</div><div style="font-weight:600; color:${sale.status === 'completed' ? 'var(--success)' : 'var(--danger)'};">${sale.status === 'completed' ? 'Paid' : 'Pending'}</div></div>
             </div>
             <div style="margin-bottom:16px;">
                 <h4 style="margin-bottom:10px; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Purchase Details</h4>
@@ -2114,19 +2177,19 @@
             <div id="returnHistoryDiv_DS_${sale.id}"></div>
         `;
         openModal('detailModal');
-        
+
         api(`/api/returns_history?sale_id=${sale.id}&sale_type=direct_sale`).then(returns => {
             if (returns && returns.length > 0) {
                 const div = document.getElementById('returnHistoryDiv_DS_' + sale.id);
                 if (div) {
                     let trueMedTotal = parseFloat(sale.total_amount) || 0;
                     let trueSubtotal = trueMedTotal + injCost + ivCost + uptCost;
-                    let trueDiscAmt  = trueSubtotal * (disc / 100);
+                    let trueDiscAmt = trueSubtotal * (disc / 100);
                     let trueRetained = trueSubtotal - trueDiscAmt;
                     renderReturnTimeline(div, returns, trueRetained, paidAmt);
                 }
             }
-        }).catch(e => {});
+        }).catch(e => { });
     };
 
     window.downloadPDF = async function () {
@@ -2194,7 +2257,7 @@
                         }
                         const dt = new Date(ts);
                         if (!isNaN(dt.getTime())) return dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
-                    } catch(e) { if(e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
+                    } catch (e) { if (e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
                     return ts;
                 };
 
@@ -2506,7 +2569,24 @@
             // Open WhatsApp to patient's chat
             let phone = (p.phone || '').replace(/[^0-9]/g, '');
             if (phone.length === 10) phone = '91' + phone;
-            const waUrl = phone ? 'whatsapp://send/?phone=' + phone + '&text=%20' : '';
+
+            // Fetch the beautiful designed text message link from API
+            let waUrl = '';
+            try {
+                const endpoint = (p.token && p.token.startsWith('DS-'))
+                    ? `/api/whatsapp_link/direct/${p.id}`
+                    : `/api/whatsapp_link/${p.presc_id || currentPrescId}`;
+                const resLink = await api(endpoint);
+                if (resLink && resLink.link) {
+                    waUrl = resLink.link;
+                }
+            } catch (e) {
+                console.error('Failed to fetch whatsapp link:', e);
+            }
+
+            if (!waUrl) {
+                waUrl = phone ? 'https://wa.me/' + phone : '';
+            }
 
             if (waUrl) {
                 if (waWin) {
@@ -2529,7 +2609,7 @@
                     document.body.appendChild(dlLink);
                     dlLink.click();
                     document.body.removeChild(dlLink);
-                } catch(e) { if(e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
+                } catch (e) { if (e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
                 toast('Bill downloaded. Attach it in the WhatsApp chat using 📎 button.', 'warning', 6000);
             }
             return;
@@ -2558,9 +2638,15 @@
             // Open WhatsApp chat
             let phone = (p.phone || '').replace(/[^0-9]/g, '');
             if (phone.length === 10) phone = '91' + phone;
-            if (phone) {
-                if (waWin) waWin.location.href = 'https://wa.me/' + phone;
-                else window.open('https://wa.me/' + phone, '_blank');
+
+            let waUrl = resLink.link;
+            if (!waUrl) {
+                waUrl = phone ? 'https://wa.me/' + phone : '';
+            }
+
+            if (waUrl) {
+                if (waWin) waWin.location.href = waUrl;
+                else window.open(waUrl, '_blank');
             } else if (waWin) {
                 waWin.close();
             }
@@ -2590,7 +2676,7 @@
         toast('Data refreshed successfully', 'success');
     };
 
-    window.togglePrevBalanceUpi = function() {
+    window.togglePrevBalanceUpi = function () {
         const methodEl = document.getElementById('clearPrevBalanceMethod');
         const upiGroup = document.getElementById('clearPrevBalanceUpiGroup');
         if (methodEl && upiGroup) {
@@ -2636,8 +2722,8 @@
         try {
             await api('/api/clear_balances/' + window.currentPatientPhone, {
                 method: 'POST',
-                body: { 
-                    amount: amountToClear, 
+                body: {
+                    amount: amountToClear,
                     current_presc_id: window.currentPrescId || null,
                     payment_method: method,
                     upi_account: upiAccount
@@ -2905,12 +2991,12 @@
     }, { passive: true });
 
     // ─── PENDING PAYMENT MODAL LOGIC ───
-    window.togglePpInputs = async function() {
+    window.togglePpInputs = async function () {
         if ($('#ppCashCheck') && $('#ppCashGroup')) $('#ppCashGroup').style.display = $('#ppCashCheck').checked ? 'block' : 'none';
         if ($('#ppGPayCheck') && $('#ppGPayGroup')) {
             $('#ppGPayGroup').style.display = $('#ppGPayCheck').checked ? 'block' : 'none';
             if ($('#ppGPayCheck').checked) {
-                try { await window.loadGlobalUpiAccounts(); } catch(e){}
+                try { await window.loadGlobalUpiAccounts(); } catch (e) { }
                 if ($('#ppUpiAccount')) $('#ppUpiAccount').focus();
             }
         }
@@ -2923,31 +3009,31 @@
         updatePpBalance();
     };
 
-    window.updatePpBalance = function() {
+    window.updatePpBalance = function () {
         const due = parseFloat($('#ppRemainingBalance') ? $('#ppRemainingBalance').getAttribute('data-due') : 0) || 0;
-        const paid = (parseFloat($('#ppCashAmount') ? $('#ppCashAmount').value : 0)||0) + 
-                     (parseFloat($('#ppGPayAmount') ? $('#ppGPayAmount').value : 0)||0) + 
-                     (parseFloat($('#ppPhonePeAmount') ? $('#ppPhonePeAmount').value : 0)||0) + 
-                     (parseFloat($('#ppBankAmount') ? $('#ppBankAmount').value : 0)||0);
+        const paid = (parseFloat($('#ppCashAmount') ? $('#ppCashAmount').value : 0) || 0) +
+            (parseFloat($('#ppGPayAmount') ? $('#ppGPayAmount').value : 0) || 0) +
+            (parseFloat($('#ppPhonePeAmount') ? $('#ppPhonePeAmount').value : 0) || 0) +
+            (parseFloat($('#ppBankAmount') ? $('#ppBankAmount').value : 0) || 0);
         const rem = Math.max(0, due - paid);
         if ($('#ppRemainingBalance')) $('#ppRemainingBalance').textContent = '₹' + rem.toFixed(2);
     };
 
-    window.openPendingPaymentModal = function(saleId, balAmt) {
+    window.openPendingPaymentModal = function (saleId, balAmt) {
         if ($('#ppSaleId')) $('#ppSaleId').value = saleId;
         if ($('#ppAmountDue')) $('#ppAmountDue').textContent = '₹' + parseFloat(balAmt).toFixed(2);
         if ($('#ppRemainingBalance')) {
             $('#ppRemainingBalance').setAttribute('data-due', balAmt);
             $('#ppRemainingBalance').textContent = '₹' + parseFloat(balAmt).toFixed(2);
         }
-        
+
         if ($('#ppCashCheck')) $('#ppCashCheck').checked = false;
         if ($('#ppGPayCheck')) $('#ppGPayCheck').checked = false;
         if ($('#ppPhonePeCheck')) $('#ppPhonePeCheck').checked = false;
         if ($('#ppBankCheck')) $('#ppBankCheck').checked = false;
-        
+
         togglePpInputs();
-        
+
         closeModal('detailModal');
         const dsDetailModal = document.getElementById('dsSaleDetailModal');
         if (dsDetailModal) dsDetailModal.classList.remove('active');
@@ -2955,11 +3041,11 @@
         if (medBreakdownModal) medBreakdownModal.classList.remove('active');
         const docBreakdownModal = document.getElementById('doctorBreakdownModal');
         if (docBreakdownModal) docBreakdownModal.classList.remove('active');
-        
+
         openModal('pendingPaymentModal');
     };
 
-    window.submitPendingPayment = async function() {
+    window.submitPendingPayment = async function () {
         const payload = {
             sale_id: $('#ppSaleId').value,
             cash_amount: parseFloat($('#ppCashAmount').value) || 0,
@@ -2973,7 +3059,7 @@
         }
         const total = payload.cash_amount + payload.gpay_amount + payload.phonepe_amount + payload.bank_amount;
         if (total <= 0) return toast('Enter payment amount', 'error');
-        
+
         const due = parseFloat($('#ppRemainingBalance').getAttribute('data-due')) || 0;
         if (total > due) return toast('Payment amount cannot exceed remaining balance', 'error');
 
@@ -2987,11 +3073,11 @@
             } else {
                 toast(res.error || 'Payment failed', 'error');
             }
-        } catch(e) { toast(e.message || 'Payment failed', 'error'); }
+        } catch (e) { toast(e.message || 'Payment failed', 'error'); }
     };
 
     // Return Medicine Logic
-    window.openReturnModal = async function(visitOrId, type) {
+    window.openReturnModal = async function (visitOrId, type) {
         let ctx = null;
         if (typeof visitOrId === 'object' && visitOrId !== null) {
             ctx = {
@@ -3012,13 +3098,13 @@
         if (!ctx || !ctx.sale_id || !ctx.medicines.length) {
             return toast('No medicines available for return in this bill.', 'error');
         }
-        
+
         // Fetch TPS bulk
         let names = ctx.medicines.map(m => m.name);
         try {
             const res = await api('/api/inventory/bulk_tps', { method: 'POST', body: { names } });
             ctx.medicines.forEach(m => { m.tps = res[m.name] || 1; });
-        } catch(e) {
+        } catch (e) {
             ctx.medicines.forEach(m => { m.tps = 1; });
         }
 
@@ -3059,37 +3145,37 @@
             `;
             tbody.appendChild(tr);
         });
-        
-        window.calculateTotalRefund = function() {
+
+        window.calculateTotalRefund = function () {
             let total = 0;
             document.querySelectorAll('#rmBody tr').forEach(tr => {
                 const inp = tr.querySelector('.rm-qty-input');
                 const sel = tr.querySelector('.rm-type-select');
                 if (!inp || !sel) return;
-                
+
                 let qty = parseFloat(inp.value) || 0;
                 const price = parseFloat(inp.getAttribute('data-price')) || 0;
                 const max = parseFloat(inp.getAttribute('data-max')) || 0;
                 const tps = parseInt(sel.getAttribute('data-tps')) || 1;
-                
+
                 const returnType = sel.value;
                 let equiv = qty;
                 if (returnType === 'Strip') {
                     equiv = qty * tps;
                 }
-                
+
                 if (equiv > max) {
                     inp.style.borderColor = 'red';
                 } else {
                     inp.style.borderColor = '';
                 }
-                
+
                 total += equiv * price;
             });
-            
+
             const disc = parseFloat(ctx ? ctx.discount_percent : 0) || 0;
             const postDiscountTotal = total - (total * (disc / 100));
-            
+
             const bal = parseFloat(ctx ? ctx.balance_amount : 0) || 0;
             const adjusted = Math.min(postDiscountTotal, bal);
             const netRefund = Math.max(0, postDiscountTotal - adjusted);
@@ -3127,14 +3213,14 @@
         openModal('returnMedicineModal');
     };
 
-    window.submitReturn = async function() {
+    window.submitReturn = async function () {
         const sale_id = document.getElementById('rmSaleId').value;
         const sale_type = document.getElementById('rmSaleType').value;
         const reason = document.getElementById('rmReason').value;
 
         const returns = [];
         const inputs = document.querySelectorAll('.rm-qty-input');
-        
+
         for (let inp of inputs) {
             const val = parseFloat(inp.value) || 0;
             const max = parseFloat(inp.getAttribute('data-max')) || 0;
@@ -3142,12 +3228,12 @@
             const sel = inp.closest('tr').querySelector('.rm-type-select');
             const tps = parseInt(sel.getAttribute('data-tps')) || 1;
             const returnType = sel.value;
-            
+
             let equiv = val;
             if (returnType === 'Strip') {
                 equiv = val * tps;
             }
-            
+
             if (val > 0) {
                 if (equiv > max) {
                     return toast(`Cannot return more than ${max} tablets for ${name}`, 'error');
@@ -3166,7 +3252,7 @@
 
         const totalReturnStr = (document.getElementById('rmTotalReturnVal') ? document.getElementById('rmTotalReturnVal').textContent : '0').replace('₹', '');
         const total_return_amount = parseFloat(totalReturnStr) || 0;
-        
+
         const balanceAdjustedStr = (document.getElementById('rmBalanceAdjusted') ? document.getElementById('rmBalanceAdjusted').textContent : '0').replace('₹', '');
         const balance_adjusted = parseFloat(balanceAdjustedStr) || 0;
 
@@ -3177,16 +3263,16 @@
         try {
             const payload = { sale_id, sale_type, returns, total_return_amount, total_refund_amount, refund_payment_mode, balance_adjusted };
             const res = await api('/api/return_medicines', { method: 'POST', body: payload });
-            
+
             if (res.success) {
                 toast('Return processed successfully!', 'success');
                 closeModal('returnMedicineModal');
-                
+
                 // Refresh views depending on where we are
                 if (sale_type === 'prescription') {
                     if (window.loadPatientsList) loadPatientsList(); // Admin
                     if (window.loadPatients) window.loadPatients(); // Pharmacy
-                    if (document.getElementById('patientSearch')) { 
+                    if (document.getElementById('patientSearch')) {
                         // If we are in detailModal, close it to force user to click View again to see updated data
                         closeModal('detailModal');
                     }
@@ -3211,26 +3297,26 @@
 // ==========================================
 // GLOBAL DATE FORMATTER FOR MFG/EXP DATES
 // ==========================================
-document.addEventListener('input', function(e) {
+document.addEventListener('input', function (e) {
     const isDateField = e.target.matches('.purc-mfg, .purc-exp, #agItemMfg, #agItemExp, #invMfgDate, #invExpiry, .mfg-date, .exp-date, [id$="MfgDate"], [id$="Expiry"]');
-    
+
     if (isDateField && e.target.type !== 'date') {
-        let val = e.target.value.replace(/\D/g, ''); 
-        
+        let val = e.target.value.replace(/\D/g, '');
+
         if (val.length >= 2) {
             let month = parseInt(val.substring(0, 2), 10);
             if (month < 1 && val.length >= 2) val = '01' + val.substring(2);
             if (month > 12) val = '12' + val.substring(2);
-            
+
             if (val.length > 2) {
                 val = val.substring(0, 2) + '/' + val.substring(2, 4);
             } else if (e.target.value.length === 3 && e.target.value.includes('/')) {
-                val = val.substring(0, 2) + '/'; 
+                val = val.substring(0, 2) + '/';
             } else {
                 val = val.substring(0, 2) + (val.length === 2 ? '/' : '');
             }
         }
-        
+
         if (e.target.value !== val) {
             e.target.value = val;
         }
@@ -3240,76 +3326,76 @@ document.addEventListener('input', function(e) {
     }
 });
 
-    window.renderReturnTimeline = function(container, returns, currentGrandTotal = 0, currentPaid = 0) {
-        // Group by date and time
-        const groups = [];
-        const groupsMap = {};
-        returns.forEach(r => {
-            const key = r.return_date + ' ' + r.return_time;
-            if (!groupsMap[key]) {
-                groupsMap[key] = {
-                    key: key,
-                    datetime: key,
-                    items: [],
-                    refund_payment_mode: r.refund_payment_mode,
-                    total_refund_amount: parseFloat(r.total_refund_amount) || 0,
-                    id: r.id
-                };
-                groups.push(groupsMap[key]);
-            }
-            groupsMap[key].items.push(r);
-        });
+window.renderReturnTimeline = function (container, returns, currentGrandTotal = 0, currentPaid = 0) {
+    // Group by date and time
+    const groups = [];
+    const groupsMap = {};
+    returns.forEach(r => {
+        const key = r.return_date + ' ' + r.return_time;
+        if (!groupsMap[key]) {
+            groupsMap[key] = {
+                key: key,
+                datetime: key,
+                items: [],
+                refund_payment_mode: r.refund_payment_mode,
+                total_refund_amount: parseFloat(r.total_refund_amount) || 0,
+                id: r.id
+            };
+            groups.push(groupsMap[key]);
+        }
+        groupsMap[key].items.push(r);
+    });
 
-        // Sort groups by ID ascending to compute running balances chronologically
-        groups.sort((a, b) => a.id - b.id);
+    // Sort groups by ID ascending to compute running balances chronologically
+    groups.sort((a, b) => a.id - b.id);
 
-        // Compute original state
-        const totalReturnsValSum = returns.reduce((sum, r) => sum + (parseFloat(r.return_amount) || 0), 0);
-        const totalRefundsSum = groups.reduce((sum, g) => sum + g.total_refund_amount, 0);
+    // Compute original state
+    const totalReturnsValSum = returns.reduce((sum, r) => sum + (parseFloat(r.return_amount) || 0), 0);
+    const totalRefundsSum = groups.reduce((sum, g) => sum + g.total_refund_amount, 0);
 
-        const G0 = currentGrandTotal + totalReturnsValSum;
-        const P0 = currentPaid + totalRefundsSum;
-        const B0 = Math.max(0.0, G0 - P0);
+    const G0 = currentGrandTotal + totalReturnsValSum;
+    const P0 = currentPaid + totalRefundsSum;
+    const B0 = Math.max(0.0, G0 - P0);
 
-        let previousBalance = B0;
-        groups.forEach(g => {
-            g.previousBalance = previousBalance;
-            g.groupReturnVal = g.items.reduce((sum, item) => sum + (parseFloat(item.return_amount) || 0), 0);
-            g.groupAdjusted = Math.min(g.groupReturnVal, previousBalance);
-            g.nextBalance = Math.max(0, previousBalance - g.groupAdjusted);
-            previousBalance = g.nextBalance;
-        });
+    let previousBalance = B0;
+    groups.forEach(g => {
+        g.previousBalance = previousBalance;
+        g.groupReturnVal = g.items.reduce((sum, item) => sum + (parseFloat(item.return_amount) || 0), 0);
+        g.groupAdjusted = Math.min(g.groupReturnVal, previousBalance);
+        g.nextBalance = Math.max(0, previousBalance - g.groupAdjusted);
+        previousBalance = g.nextBalance;
+    });
 
-        // Reverse to render newest first
-        groups.reverse();
+    // Reverse to render newest first
+    groups.reverse();
 
-        let html = '<h4 style="margin-top:20px; margin-bottom:12px; font-size:0.95rem; text-transform:uppercase; color:#be123c; border-bottom:1px solid #fda4af; padding-bottom:4px;">Return Timeline</h4>';
-        html += '<div style="display:flex; flex-direction:column; gap:16px; position:relative; padding-left:16px; border-left:2px solid #fda4af; margin-left:8px;">';
-        
-        groups.forEach(g => {
-            const first = g.items[0];
-            const reason = first.reason ? `<div style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">Reason: ${first.reason}</div>` : '';
-            const processedBy = first.processed_by ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Processed by: ${first.processed_by}</div>` : '';
-            
-            let medRows = '';
-            g.items.forEach(i => {
-                const qty = parseFloat(i.returned_qty) || 0;
-                const price = parseFloat(i.unit_price) || 0;
-                const amt = parseFloat(i.return_amount) || (qty * price);
-                const rType = i.return_type && i.return_type !== 'Single Tablet' ? ` <span style="font-size:0.7rem; background:#fee2e2; padding:1px 4px; border-radius:4px; margin-left:4px;">${i.return_type}</span>` : '';
-                medRows += `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:4px 0; border-bottom:1px dashed #fecdd3;">
+    let html = '<h4 style="margin-top:20px; margin-bottom:12px; font-size:0.95rem; text-transform:uppercase; color:#be123c; border-bottom:1px solid #fda4af; padding-bottom:4px;">Return Timeline</h4>';
+    html += '<div style="display:flex; flex-direction:column; gap:16px; position:relative; padding-left:16px; border-left:2px solid #fda4af; margin-left:8px;">';
+
+    groups.forEach(g => {
+        const first = g.items[0];
+        const reason = first.reason ? `<div style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">Reason: ${first.reason}</div>` : '';
+        const processedBy = first.processed_by ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Processed by: ${first.processed_by}</div>` : '';
+
+        let medRows = '';
+        g.items.forEach(i => {
+            const qty = parseFloat(i.returned_qty) || 0;
+            const price = parseFloat(i.unit_price) || 0;
+            const amt = parseFloat(i.return_amount) || (qty * price);
+            const rType = i.return_type && i.return_type !== 'Single Tablet' ? ` <span style="font-size:0.7rem; background:#fee2e2; padding:1px 4px; border-radius:4px; margin-left:4px;">${i.return_type}</span>` : '';
+            medRows += `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:4px 0; border-bottom:1px dashed #fecdd3;">
                     <span>${i.medicine_name} (x${qty})${rType}</span>
                     <span>₹${amt.toFixed(2)}</span>
                 </div>`;
-            });
+        });
 
-            const refundMode = g.refund_payment_mode || 'Cash';
-            const refundAmt = g.total_refund_amount;
-            const balanceStatusText = g.nextBalance > 0 
-                ? `<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">Balance: ₹${g.nextBalance.toFixed(2)} (Pending)</span>`
-                : `<span style="background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">Balance: ₹0.00 (Fully Paid)</span>`;
+        const refundMode = g.refund_payment_mode || 'Cash';
+        const refundAmt = g.total_refund_amount;
+        const balanceStatusText = g.nextBalance > 0
+            ? `<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">Balance: ₹${g.nextBalance.toFixed(2)} (Pending)</span>`
+            : `<span style="background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">Balance: ₹0.00 (Fully Paid)</span>`;
 
-            html += `
+        html += `
                 <div style="position:relative;">
                     <div style="position:absolute; width:10px; height:10px; background:#e11d48; border-radius:50%; left:-22px; top:4px; box-shadow:0 0 0 3px #fff1f2;"></div>
                     <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:8px; padding:12px;">
@@ -3328,15 +3414,66 @@ document.addEventListener('input', function(e) {
                     </div>
                 </div>
             `;
-        });
-        
-        if (currentGrandTotal !== null) {
-            html += `<div style="margin-top:16px; margin-left:24px; padding:12px; background:var(--bg-secondary); border-radius:8px; border: 1px dashed var(--border); border-left:4px solid var(--primary); display:flex; justify-content:space-between; align-items:center;">
+    });
+
+    if (currentGrandTotal !== null) {
+        html += `<div style="margin-top:16px; margin-left:24px; padding:12px; background:var(--bg-secondary); border-radius:8px; border: 1px dashed var(--border); border-left:4px solid var(--primary); display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-weight:600; font-size:0.9rem; color:var(--text-secondary);">Balance Retained After Returns:</span>
                 <span style="font-weight:800; font-size:1.05rem; color:var(--primary);">₹${currentGrandTotal.toFixed(2)}</span>
             </div>`;
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+};
+
+window.searchGenericNames = async function (inputEl) {
+    const q = inputEl.value.trim();
+    let suggBox = inputEl.nextElementSibling;
+    if (!suggBox || !suggBox.classList.contains('generic-suggestions')) {
+        suggBox = document.createElement('div');
+        suggBox.className = 'generic-suggestions';
+        suggBox.style.cssText = "display:none; position:absolute; top:100%; left:0; width:100%; z-index:1000; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; max-height:200px; overflow-y:auto; box-shadow:0 8px 16px rgba(0,0,0,0.5);";
+        inputEl.parentNode.insertBefore(suggBox, inputEl.nextSibling);
+        inputEl.parentNode.style.position = 'relative';
+    }
+
+    if (q.length < 2) {
+        suggBox.style.display = 'none';
+        return;
+    }
+
+    try {
+        const results = await api('/api/generics/search?q=' + encodeURIComponent(q));
+        if (results && results.length > 0) {
+            suggBox.innerHTML = results.map(name => `
+                <div class="generic-sugg-item" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border); transition: background 0.15s; background: var(--bg-card); color: var(--text-primary);"
+                     onmouseenter="this.style.background='var(--bg-hover)'"
+                     onmouseleave="this.style.background='var(--bg-card)'"
+                     onclick="selectGenericName(this, '${name.replace(/'/g, "\\'")}')">
+                    ${name}
+                </div>
+            `).join('');
+            suggBox.style.display = 'block';
+        } else {
+            suggBox.style.display = 'none';
         }
-        
-        html += '</div>';
-        container.innerHTML = html;
-    };
+    } catch (e) {
+        console.error(e);
+    }
+};
+
+window.selectGenericName = function (itemEl, name) {
+    const suggBox = itemEl.closest('.generic-suggestions');
+    const inputEl = suggBox.previousElementSibling;
+    inputEl.value = name;
+    suggBox.style.display = 'none';
+};
+
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.generic-suggestions') && !e.target.classList.contains('purc-generic') && e.target.id !== 'agItemGeneric' && e.target.id !== 'invGenericName') {
+        document.querySelectorAll('.generic-suggestions').forEach(box => {
+            box.style.display = 'none';
+        });
+    }
+});

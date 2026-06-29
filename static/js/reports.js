@@ -7,7 +7,7 @@ let reportData = null;
 async function loadReportDashboard(period = null, force = false) {
     const reportSection = document.getElementById('sectionReportDashboard');
     // Proceed with fetching data even if hidden, so it's ready when viewed
-    
+
     if (!period) {
         period = document.getElementById('reportPeriod').value;
     }
@@ -23,7 +23,7 @@ async function loadReportDashboard(period = null, force = false) {
     try {
         const url = `/reports_api.php?action=get_reports&period=${period}&start=${start}&end=${end}&_=${new Date().getTime()}`;
         const res = await fetch(url).then(r => r.json());
-        
+
         reportData = res;
         renderReportDashboard(res);
     } catch (e) {
@@ -47,11 +47,11 @@ function renderReportDashboard(data) {
     document.getElementById('repNetProfit').textContent = '₹' + data.executive.net_profit.toFixed(2);
 
     // Secondary Summaries
-    if(document.getElementById('repGentsFee')) document.getElementById('repGentsFee').textContent = '₹' + (data.executive.gents_doctor_revenue || 0).toFixed(2);
-    if(document.getElementById('repLadiesFee')) document.getElementById('repLadiesFee').textContent = '₹' + (data.executive.ladies_doctor_revenue || 0).toFixed(2);
-    if(document.getElementById('repPendingFees')) document.getElementById('repPendingFees').textContent = '₹' + (data.executive.pending_amount || 0).toFixed(2);
-    if(document.getElementById('repTotalReturns')) document.getElementById('repTotalReturns').textContent = '₹' + (data.executive.total_returns || 0).toFixed(2);
-    
+    if (document.getElementById('repGentsFee')) document.getElementById('repGentsFee').textContent = '₹' + (data.executive.gents_doctor_revenue || 0).toFixed(2);
+    if (document.getElementById('repLadiesFee')) document.getElementById('repLadiesFee').textContent = '₹' + (data.executive.ladies_doctor_revenue || 0).toFixed(2);
+    if (document.getElementById('repPendingFees')) document.getElementById('repPendingFees').textContent = '₹' + (data.executive.pending_amount || 0).toFixed(2);
+    if (document.getElementById('repTotalReturns')) document.getElementById('repTotalReturns').textContent = '₹' + (data.executive.total_returns || 0).toFixed(2);
+
     // Doctor Report Table
     const docTbody = document.getElementById('repDoctorTable');
     if (docTbody) {
@@ -107,7 +107,7 @@ function renderReportDashboard(data) {
             patTbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No patients found</td></tr>';
         }
     }
-    
+
     // Top Medicines
     const medTbody = document.getElementById('repMedicineTable');
     if (medTbody) {
@@ -184,21 +184,63 @@ function renderReportDashboard(data) {
     // Agency Purchases Table
     const apTbody = document.getElementById('repAgencyPurchasesTable');
     if (apTbody) {
+        // Dynamically update the table headers to match Supplier Payment columns
+        const parentTable = apTbody.closest('table');
+        if (parentTable) {
+            const thead = parentTable.querySelector('thead');
+            if (thead) {
+                thead.innerHTML = `
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>GST</th>
+                        <th>Total Purchases</th>
+                        <th>Paid or Not</th>
+                        <th>Payment Pending</th>
+                        <th>Actions</th>
+                    </tr>
+                `;
+            }
+        }
+
         apTbody.innerHTML = '';
-        if (data.agency_purchases && data.agency_purchases.length > 0) {
-            data.agency_purchases.forEach(a => {
+        const suppliersList = data.agency_suppliers || [];
+        if (suppliersList.length > 0) {
+            suppliersList.forEach(s => {
+                const total_purchased = parseFloat(s.total_purchase || 0).toFixed(2);
+                const total_paid = parseFloat(s.paid_amount || 0).toFixed(2);
+                const total_pending = parseFloat(s.pending_balance || 0).toFixed(2);
+
+                let paid_or_not_html = '';
+                let pending_html = '';
+
+                if (s.payment_status === 'Paid' || (total_pending <= 0 && total_purchased > 0)) {
+                    paid_or_not_html = `<span style="color:var(--emerald); font-weight:bold;">Paid</span>`;
+                    pending_html = `<span style="color:var(--text-secondary);">₹ 0.00</span>`;
+                } else if (s.payment_status === 'Not Paid' && total_paid <= 0) {
+                    paid_or_not_html = `<span style="color:var(--danger); font-weight:bold;">Not Paid</span>`;
+                    pending_html = `<span style="color:var(--danger); font-weight:bold;">₹ ${total_pending}</span>`;
+                } else {
+                    paid_or_not_html = `<span style="color:var(--primary); font-weight:bold;">₹ ${total_paid}</span>`;
+                    pending_html = `<span style="color:var(--danger); font-weight:bold;">₹ ${total_pending}</span>`;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${a.invoice_number}</td>
-                    <td>${a.supplier_name || 'Generic Supplier'}</td>
-                    <td>${a.purchase_date}</td>
-                    <td>${a.payment_mode}</td>
-                    <td style="font-weight:bold;">₹${parseFloat(a.grand_total || 0).toFixed(2)}</td>
+                    <td><strong>${s.name}</strong></td>
+                    <td>${s.phone || '-'}</td>
+                    <td>${s.gst_number || '-'}</td>
+                    <td style="color:var(--primary); font-weight:bold;">₹ ${total_purchased}</td>
+                    <td>${paid_or_not_html}</td>
+                    <td>${pending_html}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="openReportSupplierDetails(${s.id})">View Details</button>
+                    </td>
                 `;
                 apTbody.appendChild(tr);
             });
         } else {
-            apTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No supplier purchases found</td></tr>';
+            apTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No supplier purchases found</td></tr>';
         }
     }
 
@@ -258,7 +300,7 @@ function switchReportTab(tabId) {
         if (b.innerText.trim() === 'Returns') b.style.color = 'var(--danger)'; // Default for Returns
     });
     document.querySelectorAll('.report-tab-content').forEach(c => c.style.display = 'none');
-    
+
     const activeBtn = document.querySelector(`[onclick="switchReportTab('${tabId}')"]`);
     if (activeBtn) {
         activeBtn.classList.add('active');
@@ -276,7 +318,7 @@ async function exportReport(format) {
     const period = document.getElementById('reportPeriod').value;
     let start = document.getElementById('reportDateStart').value;
     let end = document.getElementById('reportDateEnd').value;
-    
+
     try {
         const btn = document.querySelector(`[onclick="exportReport('${format}')"]`);
         const oldText = btn ? btn.innerHTML : 'Export';
@@ -284,17 +326,17 @@ async function exportReport(format) {
 
         const url = `/reports_api.php?action=get_print_report&period=${period}&start=${start}&end=${end}&_=${new Date().getTime()}`;
         const data = await fetch(url).then(r => r.json());
-        
+
         if (!data || !data.executive) {
             throw new Error("Invalid or empty report payload received from server.");
         }
-        
+
         if (format === 'csv' || format === 'excel') {
             generateExcelReport(data, period, start, end);
         } else if (format === 'print' || format === 'pdf' || format === 'whatsapp') {
             generatePrintableReport(data, period, start, end, format);
         }
-        
+
         if (btn) { btn.innerHTML = oldText; btn.disabled = false; }
     } catch (e) {
         console.error("Error generating report", e);
@@ -338,10 +380,10 @@ function generateExcelReport(data, period, start, end) {
     if (data.patients) {
         data.patients.forEach(p => {
             patientData.push([
-                p.name, p.phone, p.doctor_name, (p.created_at || '').split(' ')[0], 
-                p.consultation_fee || 0, p.parsed_medicines || '', p.cost_amount || 0, 
-                p.injection_cost || 0, p.iv_cost || 0, p.total_amount || 0, 
-                p.paid_amount || 0, p.balance_amount || 0, 
+                p.name, p.phone, p.doctor_name, (p.created_at || '').split(' ')[0],
+                p.consultation_fee || 0, p.parsed_medicines || '', p.cost_amount || 0,
+                p.injection_cost || 0, p.iv_cost || 0, p.total_amount || 0,
+                p.paid_amount || 0, p.balance_amount || 0,
                 (p.cash_amount > 0 ? 'Cash ' : '') + (p.gpay_amount > 0 ? (p.upi_account ? p.upi_account + ' ' : 'UPI ') : '') + (p.bank_amount > 0 ? 'Bank ' : '')
             ]);
         });
@@ -407,7 +449,7 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
             if (!grouped[d]) grouped[d] = [];
             grouped[d].push(item);
         });
-        return Object.keys(grouped).sort((a,b) => b.localeCompare(a)).map(date => ({ date, items: grouped[date] }));
+        return Object.keys(grouped).sort((a, b) => b.localeCompare(a)).map(date => ({ date, items: grouped[date] }));
     };
 
     const groupedPatients = groupByDate(data.patients, 'created_at');
@@ -639,8 +681,8 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
                                 <td><div style="max-width:150px;white-space:normal;overflow-wrap:break-word">${p.parsed_medicines || ''}</div></td>
                                 <td class="text-right"><strong>₹${(p.total_amount || 0).toFixed(2)}</strong></td>
                                 <td class="text-right">₹${(p.paid_amount || 0).toFixed(2)}</td>
-                                <td class="text-right" style="color:${p.balance_amount>0?'red':'inherit'}">₹${(p.balance_amount || 0).toFixed(2)}</td>
-                                <td class="text-center">${(p.cash_amount>0?'Cash ':'')}${(p.gpay_amount>0?(p.upi_account ? 'UPI (' + p.upi_account + ') ' : 'UPI '):'')}${(p.bank_amount>0?'Bank':'')}</td>
+                                <td class="text-right" style="color:${p.balance_amount > 0 ? 'red' : 'inherit'}">₹${(p.balance_amount || 0).toFixed(2)}</td>
+                                <td class="text-center">${(p.cash_amount > 0 ? 'Cash ' : '')}${(p.gpay_amount > 0 ? (p.upi_account ? 'UPI (' + p.upi_account + ') ' : 'UPI ') : '')}${(p.bank_amount > 0 ? 'Bank' : '')}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -695,7 +737,7 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
                                 <td><div style="max-width:150px;white-space:normal;overflow-wrap:break-word">${s.parsed_medicines || ''}</div></td>
                                 <td class="text-right">₹${(s.total_amount || 0).toFixed(2)}</td>
                                 <td class="text-right">₹${(s.paid_amount || 0).toFixed(2)}</td>
-                                <td class="text-center" style="color:${s.balance_amount>0?'red':'green'}">${s.balance_amount > 0 ? 'Pending' : 'Paid'}</td>
+                                <td class="text-center" style="color:${s.balance_amount > 0 ? 'red' : 'green'}">${s.balance_amount > 0 ? 'Pending' : 'Paid'}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -784,8 +826,8 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
                     <tr><th>Name</th><th>Phone</th><th>Date</th><th class="text-right">Balance Due</th></tr>
                 </thead>
                 <tbody>
-                    ${(data.patients || []).filter(p => p.balance_amount > 0).map(p => `<tr><td>${p.name}</td><td>${p.phone}</td><td>${(p.created_at || '').split(' ')[0]}</td><td class="text-right" style="color:red; font-weight:bold;">₹${(p.balance_amount||0).toFixed(2)}</td></tr>`).join('')}
-                    ${(data.direct_sales || []).filter(s => s.balance_amount > 0).map(s => `<tr><td>${s.customer_name} (Direct)</td><td>${s.mobile_number}</td><td>${(s.created_at || '').split(' ')[0]}</td><td class="text-right" style="color:red; font-weight:bold;">₹${(s.balance_amount||0).toFixed(2)}</td></tr>`).join('')}
+                    ${(data.patients || []).filter(p => p.balance_amount > 0).map(p => `<tr><td>${p.name}</td><td>${p.phone}</td><td>${(p.created_at || '').split(' ')[0]}</td><td class="text-right" style="color:red; font-weight:bold;">₹${(p.balance_amount || 0).toFixed(2)}</td></tr>`).join('')}
+                    ${(data.direct_sales || []).filter(s => s.balance_amount > 0).map(s => `<tr><td>${s.customer_name} (Direct)</td><td>${s.mobile_number}</td><td>${(s.created_at || '').split(' ')[0]}</td><td class="text-right" style="color:red; font-weight:bold;">₹${(s.balance_amount || 0).toFixed(2)}</td></tr>`).join('')}
                 </tbody>
             </table>
         </div>` : ''}
@@ -808,7 +850,7 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
         iframe.contentWindow.document.write(html + '<script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script></body></html>');
         iframe.contentWindow.document.close();
         setTimeout(() => { document.body.removeChild(iframe); }, 10000);
-        
+
         Swal.fire({
             icon: 'success',
             title: 'Print Ready',
@@ -816,7 +858,7 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
             timer: 1500,
             showConfirmButton: false
         });
-        
+
         const btn = document.querySelector(`[onclick="exportReport('print')"]`);
         if (btn) { btn.innerHTML = 'Print & PDF'; btn.disabled = false; }
     } else {
@@ -830,7 +872,7 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
         tempDiv.style.width = '1200px';
         tempDiv.style.backgroundColor = '#fff';
         document.body.appendChild(tempDiv);
-        
+
         // Let fonts/styles load
         setTimeout(async () => {
             const wrapper = tempDiv.querySelector('.print-wrapper');
@@ -935,11 +977,11 @@ async function exportReportCustom(period, start, end, format) {
         const url = `/reports_api.php?action=get_print_report&period=${period}&start=${start}&end=${end}&_=${new Date().getTime()}`;
         const data = await fetch(url).then(r => r.json());
         Swal.close();
-        
+
         if (!data || !data.executive) {
             throw new Error("Invalid or empty report payload received from server.");
         }
-        
+
         generatePrintableReport(data, period, start, end, format);
     } catch (e) {
         console.error("Error generating backup", e);
@@ -959,7 +1001,7 @@ function toggleReportCustomDate() {
 
 function searchReport() {
     const query = document.getElementById('reportSearchInput').value.toLowerCase();
-    
+
     // Filter Patients Table
     const patRows = document.querySelectorAll('#repPatientTable tr');
     patRows.forEach(row => {
@@ -976,12 +1018,12 @@ function searchReport() {
 // Automatically bind to live sync
 if (typeof reloadCurrentSection === 'function') {
     const originalReload = window.reloadCurrentSection;
-    window.reloadCurrentSection = function() {
+    window.reloadCurrentSection = function () {
         originalReload();
         loadReportDashboard();
     };
 } else {
-    window.reloadCurrentSection = function() {
+    window.reloadCurrentSection = function () {
         loadReportDashboard();
     };
 }
@@ -995,10 +1037,10 @@ async function sendWhatsAppBackup() {
 // ═══════════════════════════════════════════
 function showReportDetails(type) {
     if (!reportData || !reportData.executive) return;
-    
+
     let title = 'Report Details';
     let html = '';
-    
+
     if (type === 'revenue') {
         title = 'Total Revenue Breakdown';
         html = `
@@ -1137,7 +1179,7 @@ function showReportDetails(type) {
             type: 'Direct Sale'
         }));
         const allPending = [...pendingPrescriptions, ...pendingDirectSales];
-        
+
         html = `
             <div style="max-height: 400px; overflow-y: auto;">
                 <table class="data-table">
@@ -1169,7 +1211,7 @@ function showReportDetails(type) {
         title = `${type === 'gents' ? 'Gents (Sir)' : 'Ladies (Madam)'} Doctor Fee Breakdown`;
         const matchType = type === 'gents' ? 'gent' : 'lady';
         const filteredDocs = (reportData.doctors || []).filter(d => (d.doctor_type || '').toLowerCase().indexOf(matchType) !== -1);
-        
+
         html = `
             <div style="margin-bottom:15px;">
                 Total Consultation Fee Revenue: <strong style="font-size:1.1rem; color:var(--primary);">₹${(type === 'gents' ? reportData.executive.gents_doctor_revenue : reportData.executive.ladies_doctor_revenue).toFixed(2)}</strong>
@@ -1260,9 +1302,9 @@ function showPatientReportDetailsByIndex(index) {
                 </thead>
                 <tbody>
                     ${medicines.map(m => {
-                        const retQty = parseFloat(m.returned_qty) || 0;
-                        const retAmt = parseFloat(m.returned_amount) || 0;
-                        return `
+            const retQty = parseFloat(m.returned_qty) || 0;
+            const retAmt = parseFloat(m.returned_amount) || 0;
+            return `
                             <tr>
                                 <td>${m.name}</td>
                                 <td>${m.qty}</td>
@@ -1270,7 +1312,7 @@ function showPatientReportDetailsByIndex(index) {
                                 <td style="text-align:right">${retAmt > 0 ? `<span style="color:var(--danger)">-₹${retAmt.toFixed(2)}</span>` : '₹0.00'}</td>
                             </tr>
                         `;
-                    }).join('')}
+        }).join('')}
                 </tbody>
             </table>
         `;
@@ -1361,9 +1403,9 @@ function showDirectSaleReportDetailsByIndex(index) {
                 </thead>
                 <tbody>
                     ${medicines.map(m => {
-                        const retQty = parseFloat(m.returned_qty) || 0;
-                        const retAmt = parseFloat(m.returned_amount) || 0;
-                        return `
+            const retQty = parseFloat(m.returned_qty) || 0;
+            const retAmt = parseFloat(m.returned_amount) || 0;
+            return `
                             <tr>
                                 <td>${m.name}</td>
                                 <td>${m.qty}</td>
@@ -1371,7 +1413,7 @@ function showDirectSaleReportDetailsByIndex(index) {
                                 <td style="text-align:right">${retAmt > 0 ? `<span style="color:var(--danger)">-₹${retAmt.toFixed(2)}</span>` : '₹0.00'}</td>
                             </tr>
                         `;
-                    }).join('')}
+        }).join('')}
                 </tbody>
             </table>
         `;
@@ -1409,11 +1451,11 @@ function showDirectSaleReportDetailsByIndex(index) {
 // ═══════════════════════════════════════════
 // AUTO BACKUP LOGIC
 // ═══════════════════════════════════════════
-window.toggleWaProviderFields = function() {
+window.toggleWaProviderFields = function () {
     const providerEl = document.getElementById('settingWaProvider');
     if (!providerEl) return;
     const provider = providerEl.value;
-    
+
     const metaFields = document.getElementById('metaApiFields');
     const customFields = document.getElementById('customApiFields');
     if (metaFields) metaFields.style.display = (provider === 'meta') ? 'block' : 'none';
@@ -1422,12 +1464,12 @@ window.toggleWaProviderFields = function() {
 
 function syncBackupSettingsInputs(settings) {
     if (!settings) return;
-    
+
     const setVal = (id, val) => {
         const el = document.getElementById(id);
         if (el) el.value = val;
     };
-    
+
     setVal('settingWaNumber', settings.whatsapp_backup_number || '');
     setVal('settingBackupTime', settings.auto_backup_time || '');
     setVal('settingWaProvider', settings.whatsapp_api_provider || 'mock');
@@ -1435,11 +1477,11 @@ function syncBackupSettingsInputs(settings) {
     setVal('settingWaPhoneId', settings.whatsapp_meta_phone_id || '');
     setVal('settingWaCustomUrl', settings.whatsapp_custom_url || '');
     setVal('settingWaCustomToken', settings.whatsapp_api_token || '');
-    
+
     // Also save in localStorage for client-side interval or backwards-compatibility
     if (settings.whatsapp_backup_number) localStorage.setItem('whatsapp_backup_number', settings.whatsapp_backup_number);
     if (settings.auto_backup_time) localStorage.setItem('auto_backup_time', settings.auto_backup_time);
-    
+
     window.toggleWaProviderFields();
 }
 
@@ -1451,10 +1493,10 @@ async function saveAutoBackupSettings() {
     const phoneId = document.getElementById('settingWaPhoneId').value.trim();
     const customUrl = document.getElementById('settingWaCustomUrl').value.trim();
     const customToken = document.getElementById('settingWaCustomToken').value.trim();
-    
+
     if (wa) localStorage.setItem('whatsapp_backup_number', wa);
     if (time) localStorage.setItem('auto_backup_time', time);
-    
+
     const formData = new FormData();
     formData.append('whatsapp_backup_number', wa);
     formData.append('auto_backup_time', time);
@@ -1463,7 +1505,7 @@ async function saveAutoBackupSettings() {
     formData.append('whatsapp_meta_phone_id', phoneId);
     formData.append('whatsapp_custom_url', customUrl);
     formData.append('whatsapp_api_token', customToken);
-    
+
     try {
         const response = await fetch('/reports_api.php?action=save_backup_settings', {
             method: 'POST',
@@ -1494,3 +1536,116 @@ document.addEventListener('DOMContentLoaded', () => {
     if (time && document.getElementById('settingBackupTime')) document.getElementById('settingBackupTime').value = time;
     window.toggleWaProviderFields();
 });
+
+async function openReportSupplierDetails(supplierId) {
+    try {
+        const res = await api(`/api/agency/supplier/details/${supplierId}`);
+        const supp = res.supplier;
+        const purcs = res.purchases;
+
+        const formatAmount = (val) => {
+            let num = parseFloat(val || 0);
+            return num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        };
+
+        document.getElementById('repSuppDetailsTitle').textContent = `Purchases from ${supp.name}`;
+
+        let html = '';
+        if (purcs.length === 0) {
+            html = '<p>No purchases found for this supplier.</p>';
+        } else {
+            purcs.forEach(p => {
+                const pendingVal = parseFloat(p.balance_amount || 0);
+                const paidVal = parseFloat(p.paid_amount || 0);
+                const isFullyPaid = pendingVal <= 0;
+                const statusColor = isFullyPaid ? 'var(--emerald)' : (pendingVal > 0 ? 'var(--danger)' : 'var(--primary)');
+
+                let itemsHtml = `<div id="rep-supp-purc-items-${p.id}" style="display:none; margin-top:10px; background:var(--bg-primary); padding:10px; border-radius:4px; border:1px solid var(--border);">
+                    <table class="data-table" style="font-size:0.9em;">
+                        <thead><tr><th>Item</th><th>Batch</th><th>Qty</th><th>Rate</th><th>GST</th><th>Total</th></tr></thead>
+                        <tbody>
+                            ${p.items.map(i => `<tr>
+                                <td>${i.item_name}</td>
+                                <td>${i.batch_number}</td>
+                                <td>${i.quantity} ${i.unit || ''}</td>
+                                <td>₹ ${formatAmount(i.purchase_rate)}</td>
+                                <td>₹ ${formatAmount(i.gst)}</td>
+                                <td>₹ ${formatAmount(i.total_amount)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+
+                let paymentDisplayHtml = '';
+                if (!isFullyPaid) {
+                    paymentDisplayHtml = `
+                        <div style="font-size:0.9em; margin-top: 5px; line-height: 1.4;">
+                             <span style="color:var(--emerald); font-weight: bold;">Paid: ₹ ${formatAmount(paidVal)}</span> | 
+                             <span style="color:var(--danger); font-weight: bold;">Pending: ₹ ${formatAmount(pendingVal)}</span>
+                        </div>
+                    `;
+                } else {
+                    let parts = [];
+                    if (parseFloat(p.cash_amount || 0) > 0) parts.push(`Cash : ₹ ${formatAmount(p.cash_amount)}`);
+                    if (parseFloat(p.gpay_amount || 0) > 0) parts.push(`UPI : ₹ ${formatAmount(p.gpay_amount)}`);
+                    if (parseFloat(p.phonepe_amount || 0) > 0) parts.push(`PhonePe : ₹ ${formatAmount(p.phonepe_amount)}`);
+                    if (parseFloat(p.bank_amount || 0) > 0) parts.push(`Bank Transfer : ₹ ${formatAmount(p.bank_amount)}`);
+
+                    let breakdown = parts.length > 0 ? parts.join('<br>') : `${p.payment_mode || 'Cash'} : ₹ ${formatAmount(p.grand_total)}`;
+
+                    paymentDisplayHtml = `
+                        <div style="font-size:0.9em; margin-top: 5px; line-height: 1.5;">
+                            <div style="color:var(--emerald); font-weight: bold;">Paid: ₹ ${formatAmount(paidVal)}</div>
+                            <div><strong>Payment Date:</strong> ${p.payment_date || p.purchase_date || '-'}</div>
+                            <div style="margin-top: 4px;"><strong>Payment Mode:</strong><br><span style="color:var(--text-secondary); display:inline-block; margin-top: 2px;">${breakdown}</span></div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                <div style="border:1px solid var(--border); border-radius:var(--radius); padding:15px; margin-bottom:15px; background:var(--bg-card);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h4 style="margin:0; color:var(--text-primary);">Invoice: ${p.invoice_number}</h4>
+                            <small style="color:var(--text-secondary);">Date: ${p.purchase_date}</small>
+                        </div>
+                        <div style="text-align:right;">
+                            <h4 style="margin:0; color:var(--primary);">₹ ${formatAmount(p.grand_total)}</h4>
+                            <span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.8em; font-weight:bold; background:${statusColor}; color:#fff;">${p.payment_status || 'Pending'}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+                        <div>
+                            ${paymentDisplayHtml}
+                        </div>
+                        <div style="display:flex; gap: 5px; align-items: center;">
+                            <button class="btn btn-outline btn-sm" onclick="document.getElementById('rep-supp-purc-items-${p.id}').style.display = document.getElementById('rep-supp-purc-items-${p.id}').style.display === 'none' ? 'block' : 'none'">View Items</button>
+                        </div>
+                    </div>
+                    ${itemsHtml}
+                </div>`;
+            });
+        }
+
+        // Add the supplier overall summary at the bottom (read-only)
+        html += `
+        <div style="margin-top: 20px; padding: 15px; border: 2px dashed var(--primary); border-radius: var(--radius); background: var(--bg-hover);">
+            <h4 style="margin-top:0; color:var(--primary); text-align:center;">Overall Supplier Summary</h4>
+            <div style="display:flex; justify-content:space-around; align-items:center; text-align:center; flex-wrap:wrap; gap:15px;">
+                <div><small style="color:var(--text-secondary);">Total Purchase</small><br><strong style="font-size:1.2em; color:var(--text-primary);">₹ ${formatAmount(supp.total_purchase)}</strong></div>
+                <div><small style="color:var(--text-secondary);">Purchase Count</small><br><strong style="font-size:1.2em; color:var(--text-primary);">${purcs.length}</strong></div>
+                <div><small style="color:var(--text-secondary);">Cash Paid</small><br><strong style="font-size:1.2em; color:var(--emerald);">₹ ${formatAmount(supp.cash_amount)}</strong></div>
+                <div><small style="color:var(--text-secondary);">UPI Paid</small><br><strong style="font-size:1.2em; color:var(--emerald);">₹ ${formatAmount(supp.gpay_amount)}</strong></div>
+                <div><small style="color:var(--text-secondary);">PhonePe Paid</small><br><strong style="font-size:1.2em; color:var(--emerald);">₹ ${formatAmount(supp.phonepe_amount)}</strong></div>
+                <div><small style="color:var(--text-secondary);">Bank Transfer</small><br><strong style="font-size:1.2em; color:var(--emerald);">₹ ${formatAmount(supp.bank_amount)}</strong></div>
+                <div><small style="color:var(--text-secondary);">Total Paid</small><br><strong style="font-size:1.2em; color:var(--emerald);">₹ ${formatAmount(supp.total_paid || (parseFloat(supp.cash_amount) + parseFloat(supp.gpay_amount) + parseFloat(supp.phonepe_amount) + parseFloat(supp.bank_amount)))}</strong></div>
+                <div><small style="color:var(--text-secondary);">Pending Balance</small><br><strong style="font-size:1.2em; color:var(--danger);">₹ ${formatAmount(supp.pending_balance)}</strong></div>
+            </div>
+        </div>`;
+
+        document.getElementById('repSuppDetailsContent').innerHTML = html;
+        openModal('repSuppDetailsModal');
+    } catch (e) {
+        toast('Failed to load supplier details', 'error');
+    }
+}

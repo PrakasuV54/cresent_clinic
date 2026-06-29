@@ -88,6 +88,25 @@ function detect_medicine_category($item_name) {
     return '';
 }
 
+function get_mapped_generic_name($conn, $brand_name) {
+    $brand_name = trim($brand_name);
+    if ($brand_name === '' || strtolower($brand_name) === '(unmapped brand)') return '';
+    
+    // Look up in agency_items first
+    $stmt = $conn->prepare("SELECT DISTINCT generic_name FROM agency_items WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND generic_name IS NOT NULL AND TRIM(generic_name) != '' LIMIT 1");
+    $stmt->execute([$brand_name]);
+    $res = $stmt->fetchColumn();
+    if ($res) return $res;
+    
+    // Look up in inventory
+    $stmt = $conn->prepare("SELECT DISTINCT generic_name FROM inventory WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND generic_name IS NOT NULL AND TRIM(generic_name) != '' LIMIT 1");
+    $stmt->execute([$brand_name]);
+    $res = $stmt->fetchColumn();
+    if ($res) return $res;
+    
+    return '';
+}
+
 // Bidirectional synchronization between agency_items and inventory tables
 function sync_stock_item($conn, $item_name, $batch_number, $source) {
     if (empty($item_name) || empty($batch_number)) {
@@ -101,6 +120,14 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
         $a_item = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($a_item) {
+            // Fetch agency/supplier name
+            $agency_name = '';
+            if (!empty($a_item['supplier_id'])) {
+                $supp_stmt = $conn->prepare("SELECT name FROM agency_suppliers WHERE id = ?");
+                $supp_stmt->execute([$a_item['supplier_id']]);
+                $agency_name = $supp_stmt->fetchColumn() ?: '';
+            }
+
             // Check if exists in pharmacy inventory
             $chk = $conn->prepare("SELECT id, tablets_per_strip FROM inventory WHERE name = ? AND batch_number = ?");
             $chk->execute([$item_name, $batch_number]);
@@ -111,7 +138,9 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                 $upd = $conn->prepare("UPDATE inventory SET 
                     item_code = ?, category = ?, hsn_code = ?, mfg_date = ?, 
                     expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?, 
-                    stock = ?, min_stock = ?, supplier_id = ?
+                    stock = ?, min_stock = ?, supplier_id = ?,
+                    generic_name = ?, brand_name = ?, agency_name = COALESCE(NULLIF(?, ''), agency_name),
+                    row_location = ?, col_location = ?
                     WHERE id = ?");
                 $upd->execute([
                     $a_item['item_code'] ?? '',
@@ -125,6 +154,11 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                     (in_array(strtolower($a_item['category'] ?? 'Tablet'), ['tablet', 'tablets', 'tab']) && ($p_item['tablets_per_strip'] ?? 0) > 0) ? (int)($a_item['stock'] ?? 0) * (int)$p_item['tablets_per_strip'] : (int)($a_item['stock'] ?? 0),
                     (int)($a_item['min_stock'] ?? 0),
                     $a_item['supplier_id'] ?? null,
+                    $a_item['generic_name'] ?? '',
+                    $a_item['brand_name'] ?? '',
+                    $agency_name,
+                    $a_item['row_location'] ?? '',
+                    $a_item['col_location'] ?? '',
                     $p_item['id']
                 ]);
             } else {
@@ -138,8 +172,9 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                 $ins = $conn->prepare("INSERT INTO inventory (
                     item_code, name, category, hsn_code, batch_number, mfg_date, 
                     expiry_date, mrp, purchase_price, selling_price, opening_stock, 
-                    stock, min_stock, tablets_per_strip, supplier_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    stock, min_stock, tablets_per_strip, supplier_id,
+                    generic_name, brand_name, agency_name, row_location, col_location
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $ins->execute([
                     $a_item['item_code'] ?? '',
                     $item_name,
@@ -155,7 +190,12 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                     (in_array(strtolower($a_item['category'] ?? 'Tablet'), ['tablet', 'tablets', 'tab']) && $tps > 0) ? (int)($a_item['stock'] ?? 0) * $tps : (int)($a_item['stock'] ?? 0),
                     (int)($a_item['min_stock'] ?? 0),
                     $tps,
-                    $a_item['supplier_id'] ?? null
+                    $a_item['supplier_id'] ?? null,
+                    $a_item['generic_name'] ?? '',
+                    $a_item['brand_name'] ?? '',
+                    $agency_name,
+                    $a_item['row_location'] ?? '',
+                    $a_item['col_location'] ?? ''
                 ]);
             }
         } else {
@@ -180,7 +220,9 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                 $upd = $conn->prepare("UPDATE agency_items SET 
                     item_code = ?, category = ?, hsn_code = ?, mfg_date = ?, 
                     expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?, 
-                    stock = ?, min_stock = ? 
+                    stock = ?, min_stock = ?,
+                    generic_name = ?, brand_name = ?, supplier_id = ?,
+                    row_location = ?, col_location = ?
                     WHERE id = ?");
                 $upd->execute([
                     $p_item['item_code'] ?? '',
@@ -193,6 +235,11 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                     (float)($p_item['selling_price'] ?? 0),
                     (in_array(strtolower($p_item['category'] ?? 'Tablet'), ['tablet', 'tablets', 'tab']) && ($p_item['tablets_per_strip'] ?? 0) > 0) ? floor((int)($p_item['stock'] ?? 0) / (int)$p_item['tablets_per_strip']) : (int)($p_item['stock'] ?? 0),
                     (int)($p_item['min_stock'] ?? 0),
+                    $p_item['generic_name'] ?? '',
+                    $p_item['brand_name'] ?? '',
+                    $p_item['supplier_id'] ?? $a_item['supplier_id'],
+                    $p_item['row_location'] ?? '',
+                    $p_item['col_location'] ?? '',
                     $a_item['id']
                 ]);
             } else {
@@ -200,8 +247,9 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                 $ins = $conn->prepare("INSERT INTO agency_items (
                     item_code, item_name, category, hsn_code, batch_number, mfg_date, 
                     expiry_date, mrp, purchase_price, selling_price, opening_stock, 
-                    stock, min_stock
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    stock, min_stock, generic_name, brand_name, supplier_id,
+                    row_location, col_location
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $ins->execute([
                     $p_item['item_code'] ?? '',
                     $item_name,
@@ -215,7 +263,12 @@ function sync_stock_item($conn, $item_name, $batch_number, $source) {
                     (float)($p_item['selling_price'] ?? 0),
                     (int)($p_item['opening_stock'] ?? 0),
                     (in_array(strtolower($p_item['category'] ?? 'Tablet'), ['tablet', 'tablets', 'tab']) && ($p_item['tablets_per_strip'] ?? 0) > 0) ? floor((int)($p_item['stock'] ?? 0) / (int)$p_item['tablets_per_strip']) : (int)($p_item['stock'] ?? 0),
-                    (int)($p_item['min_stock'] ?? 0)
+                    (int)($p_item['min_stock'] ?? 0),
+                    $p_item['generic_name'] ?? '',
+                    $p_item['brand_name'] ?? '',
+                    $p_item['supplier_id'] ?? null,
+                    $p_item['row_location'] ?? '',
+                    $p_item['col_location'] ?? ''
                 ]);
             }
         } else {
@@ -309,6 +362,19 @@ try {
     $cols_inv = $stmt_inv->fetchAll(PDO::FETCH_COLUMN, 0);
     if (!in_array('supplier_id', $cols_inv)) $conn->exec("ALTER TABLE inventory ADD COLUMN supplier_id INT");
 
+    // Self-healing: Ensure generic_name, brand_name, row_location, col_location exist in agency_items
+    $stmt_ai = $conn->query("SHOW COLUMNS FROM agency_items");
+    $cols_ai = $stmt_ai->fetchAll(PDO::FETCH_COLUMN, 0);
+    if (!in_array('generic_name', $cols_ai)) $conn->exec("ALTER TABLE agency_items ADD COLUMN generic_name VARCHAR(255) DEFAULT NULL");
+    if (!in_array('brand_name', $cols_ai)) $conn->exec("ALTER TABLE agency_items ADD COLUMN brand_name VARCHAR(255) DEFAULT NULL");
+    if (!in_array('row_location', $cols_ai)) $conn->exec("ALTER TABLE agency_items ADD COLUMN row_location VARCHAR(100) DEFAULT NULL");
+    if (!in_array('col_location', $cols_ai)) $conn->exec("ALTER TABLE agency_items ADD COLUMN col_location VARCHAR(100) DEFAULT NULL");
+
+    // Self-healing: Ensure generic_name exists in agency_purchase_items
+    $stmt_api = $conn->query("SHOW COLUMNS FROM agency_purchase_items");
+    $cols_api = $stmt_api->fetchAll(PDO::FETCH_COLUMN, 0);
+    if (!in_array('generic_name', $cols_api)) $conn->exec("ALTER TABLE agency_purchase_items ADD COLUMN generic_name VARCHAR(255) DEFAULT NULL");
+
 } catch (Exception $e) {}
 
 function get_prev_balance_info($conn, $patient_id, $current_presc_id) {
@@ -401,11 +467,18 @@ if ($uri === '/api/register_patient' && $method === 'POST') {
     $db_id = $conn->lastInsertId();
     
     // Permanent ID Logic
-    $stmt = $conn->prepare("SELECT patient_id FROM patients WHERE name=? AND phone=? AND id != ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT patient_id FROM patients WHERE name=? AND phone=? AND id != ? AND patient_id IS NOT NULL AND patient_id != '' LIMIT 1");
     $stmt->execute([$input['name'], $input['phone'], $db_id]);
     $existing = $stmt->fetch();
     
-    $ccs_id = $existing ? $existing['patient_id'] : "CCS$db_id";
+    if ($existing && !empty($existing['patient_id'])) {
+        $ccs_id = $existing['patient_id'];
+    } else {
+        $stmt = $conn->query("SELECT MAX(CAST(SUBSTRING(patient_id, 4) AS UNSIGNED)) AS max_num FROM patients WHERE patient_id LIKE 'CCS%'");
+        $max_row = $stmt->fetch();
+        $next_num = ($max_row && $max_row['max_num'] !== null) ? ((int)$max_row['max_num'] + 1) : 1;
+        $ccs_id = "CCS" . $next_num;
+    }
     
     $stmt = $conn->prepare("UPDATE patients SET patient_id = ? WHERE id = ?");
     $stmt->execute([$ccs_id, $db_id]);
@@ -425,12 +498,15 @@ if (preg_match('/^\/api\/fetch_patient\/(.*)$/', $uri, $matches)) {
     $conn = get_db();
     $search_col = (strpos($query, 'CCS') === 0) ? "patient_id" : "phone";
 
-    $stmt = $conn->prepare("SELECT * FROM (
-               SELECT name, age, gender, address, complaint, bp, temp, pulse, weight, height, spo2, created_at, patient_id, phone
-               FROM patients 
-               WHERE $search_col = ?
-               ORDER BY created_at DESC
-           ) GROUP BY name, phone ORDER BY created_at DESC");
+    $stmt = $conn->prepare("SELECT p1.name, p1.age, p1.gender, p1.address, p1.complaint, p1.bp, p1.temp, p1.pulse, p1.weight, p1.height, p1.spo2, p1.created_at, p1.patient_id, p1.phone 
+               FROM patients p1
+               INNER JOIN (
+                   SELECT MAX(id) as max_id 
+                   FROM patients 
+                   WHERE $search_col = ?
+                   GROUP BY name, phone
+               ) p2 ON p1.id = p2.max_id
+               ORDER BY p1.created_at DESC");
     $stmt->execute([$query]);
     $rows = $stmt->fetchAll();
     
@@ -446,7 +522,7 @@ if (preg_match('/^\/api\/fetch_patient\/(.*)$/', $uri, $matches)) {
 // ═══════════════════════════════════════════
 
 if ($uri === '/api/patients' && $method === 'GET') {
-    enforce_api_auth(['receptionist', 'doctor', 'pharmacist']);
+    enforce_api_auth(['receptionist', 'doctor', 'pharmacist', 'monitor']);
     $role = $_SESSION['role'] ?? null;
     if ($role === 'management' && isset($_GET['as_role'])) {
         $role = $_GET['as_role'];
@@ -733,7 +809,7 @@ if (($uri === '/api/add_medicines' || $uri === '/api/direct_pharmacy') && $metho
                         $tps = max(1, (int)($row['tablets_per_strip'] ?? 1));
                         $cost_per_unit = (float)$row['purchase_price'] / $tps;
                         $total_cost += $cost_per_unit * $qty;
-                        $stmt = $conn->prepare("UPDATE inventory SET stock = MAX(stock - ?, 0) WHERE id=?");
+                        $stmt = $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - ?, 0) WHERE id=?");
                         $stmt->execute([$qty, $batch_id]);
                         
                         // Sync stock to agency inventory
@@ -747,7 +823,7 @@ if (($uri === '/api/add_medicines' || $uri === '/api/direct_pharmacy') && $metho
                         $tps = max(1, (int)($row['tablets_per_strip'] ?? 1));
                         $cost_per_unit = (float)$row['purchase_price'] / $tps;
                         $total_cost += $cost_per_unit * $qty;
-                        $stmt = $conn->prepare("UPDATE inventory SET stock = MAX(stock - ?, 0) WHERE id=?");
+                        $stmt = $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - ?, 0) WHERE id=?");
                         $stmt->execute([$qty, $row['id']]);
                         
                         // Sync stock to agency inventory
@@ -764,7 +840,7 @@ if (($uri === '/api/add_medicines' || $uri === '/api/direct_pharmacy') && $metho
             $row = $stmt->fetch();
             if ($row) {
                 $total_cost += (float)$row['purchase_price'];
-                $stmt = $conn->prepare("UPDATE inventory SET stock = MAX(stock - 1, 0) WHERE id=?");
+                $stmt = $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - 1, 0) WHERE id=?");
                 $stmt->execute([$row['id']]);
                 
                 // Sync stock to agency inventory
@@ -783,7 +859,7 @@ if (($uri === '/api/add_medicines' || $uri === '/api/direct_pharmacy') && $metho
             $row = $stmt->fetch();
             if ($row) {
                 $total_cost += (float)$row['purchase_price'];
-                $stmt = $conn->prepare("UPDATE inventory SET stock = MAX(stock - 1, 0) WHERE id=?");
+                $stmt = $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - 1, 0) WHERE id=?");
                 $stmt->execute([$row['id']]);
                 
                 // Sync stock to agency inventory
@@ -884,7 +960,7 @@ if ($uri === '/api/direct_sales/add' && $method === 'POST') {
                     if ($row) {
                         $tps = max(1, (int)($row['tablets_per_strip'] ?? 1));
                         $total_cost += ((float)$row['purchase_price'] / $tps) * $qty;
-                        $conn->prepare("UPDATE inventory SET stock = MAX(stock - ?, 0) WHERE id=?")->execute([$qty, $batch_id]);
+                        $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - ?, 0) WHERE id=?")->execute([$qty, $batch_id]);
                         sync_stock_item($conn, $row['name'], $row['batch_number'], 'pharmacy');
                     }
                 } else {
@@ -894,7 +970,7 @@ if ($uri === '/api/direct_sales/add' && $method === 'POST') {
                     if ($row) {
                         $tps = max(1, (int)($row['tablets_per_strip'] ?? 1));
                         $total_cost += ((float)$row['purchase_price'] / $tps) * $qty;
-                        $conn->prepare("UPDATE inventory SET stock = MAX(stock - ?, 0) WHERE id=?")->execute([$qty, $row['id']]);
+                        $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - ?, 0) WHERE id=?")->execute([$qty, $row['id']]);
                         sync_stock_item($conn, $row['name'], $row['batch_number'], 'pharmacy');
                     }
                 }
@@ -908,7 +984,7 @@ if ($uri === '/api/direct_sales/add' && $method === 'POST') {
             $row = $stmt->fetch();
             if ($row) {
                 $total_cost += (float)$row['purchase_price'];
-                $conn->prepare("UPDATE inventory SET stock = MAX(stock - 1, 0) WHERE id=?")->execute([$row['id']]);
+                $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - 1, 0) WHERE id=?")->execute([$row['id']]);
                 sync_stock_item($conn, $row['name'], $row['batch_number'], 'pharmacy');
             }
         };
@@ -920,7 +996,7 @@ if ($uri === '/api/direct_sales/add' && $method === 'POST') {
             $row  = $stmt->fetch();
             if ($row) {
                 $total_cost += (float)$row['purchase_price'];
-                $conn->prepare("UPDATE inventory SET stock = MAX(stock - 1, 0) WHERE id=?")->execute([$row['id']]);
+                $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - 1, 0) WHERE id=?")->execute([$row['id']]);
                 sync_stock_item($conn, $row['name'], $row['batch_number'], 'pharmacy');
             }
         }
@@ -1199,19 +1275,41 @@ if ($uri === '/api/inventory/bulk_tps' && $method === 'POST') {
     exit;
 }
 
+if ($uri === '/api/generics/search' && $method === 'GET') {
+    enforce_api_auth(['pharmacist', 'doctor', 'receptionist']);
+    $q = trim($_GET['q'] ?? '');
+    $conn = get_db();
+    
+    try {
+        $stmt = $conn->prepare("
+            SELECT DISTINCT generic_name FROM (
+                SELECT generic_name FROM inventory WHERE generic_name LIKE ? AND generic_name != '' AND generic_name IS NOT NULL
+                UNION
+                SELECT generic_name FROM agency_items WHERE generic_name LIKE ? AND generic_name != '' AND generic_name IS NOT NULL
+            ) AS combined ORDER BY generic_name ASC LIMIT 15
+        ");
+        $stmt->execute(["%$q%", "%$q%"]);
+        $results = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        json_response($results);
+    } catch (Exception $e) {
+        json_response([], 500);
+    }
+}
+
 if ($uri === '/api/inventory/search' && $method === 'GET') {
-    enforce_api_auth(['pharmacist']);
+    enforce_api_auth(['pharmacist', 'doctor', 'receptionist']);
     $q = trim($_GET['q'] ?? '');
     $include_all = ($_GET['all'] ?? '0') === '1';
     $category = $_GET['category'] ?? ''; // NEW
     $conn = get_db();
     
-    $query = "SELECT i.*, s.name as agency_name FROM inventory i LEFT JOIN agency_suppliers s ON i.supplier_id = s.id";
+    $query = "SELECT i.*, COALESCE(NULLIF(i.agency_name,''), s.name) as agency_name FROM inventory i LEFT JOIN agency_suppliers s ON i.supplier_id = s.id";
     $params = [];
     $conditions = [];
     
     if ($q) {
-        $conditions[] = "(i.name LIKE ? OR i.item_code LIKE ? OR i.batch_number LIKE ?)";
+        $conditions[] = "(i.name LIKE ? OR i.generic_name LIKE ? OR i.item_code LIKE ? OR i.batch_number LIKE ?)";
+        $params[] = "%$q%";
         $params[] = "%$q%";
         $params[] = "%$q%";
         $params[] = "%$q%";
@@ -1255,27 +1353,39 @@ if ($uri === '/api/inventory/add' && $method === 'POST') {
     $hsn_code = $input['hsn_code'] ?? '';
     $tablets_per_strip = (int)($input['tablets_per_strip'] ?? 0);
     $min_stock = (int)($input['min_stock'] ?? 0);
+    $row_location = trim($input['row_location'] ?? '');
+    $col_location = trim($input['col_location'] ?? '');
+    $generic_name = trim($input['generic_name'] ?? '');
+    if ($generic_name === '') {
+        $generic_name = get_mapped_generic_name($conn, $name);
+    }
+    $brand_name = trim($input['brand_name'] ?? $name);
+    $agency_name = trim($input['agency_name'] ?? '');
 
-    // PHP doesn't have native "ON CONFLICT" support in PDO in a simple way for all drivers, 
-    // but SQLite supports it directly in SQL.
-    $sql = "INSERT INTO inventory (item_code, name, category, hsn_code, batch_number, mfg_date, expiry_date, mrp, purchase_price, selling_price, opening_stock, stock, min_stock, tablets_per_strip)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(name, batch_number) DO UPDATE SET 
-                stock = stock + excluded.stock,
-                opening_stock = opening_stock + excluded.opening_stock,
-                purchase_price = excluded.purchase_price,
-                selling_price = excluded.selling_price,
-                mrp = excluded.mrp,
-                expiry_date = excluded.expiry_date,
-                item_code = excluded.item_code,
-                mfg_date = excluded.mfg_date,
-                category = excluded.category,
-                hsn_code = excluded.hsn_code,
-                min_stock = excluded.min_stock,
-                tablets_per_strip = excluded.tablets_per_strip";
+    // MySQL-compatible duplicate key update
+    $sql = "INSERT INTO inventory (item_code, name, generic_name, brand_name, agency_name, category, hsn_code, batch_number, mfg_date, expiry_date, mrp, purchase_price, selling_price, opening_stock, stock, min_stock, tablets_per_strip, row_location, col_location)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+                stock = stock + VALUES(stock),
+                opening_stock = opening_stock + VALUES(opening_stock),
+                purchase_price = VALUES(purchase_price),
+                selling_price = VALUES(selling_price),
+                mrp = VALUES(mrp),
+                expiry_date = VALUES(expiry_date),
+                item_code = VALUES(item_code),
+                mfg_date = VALUES(mfg_date),
+                category = VALUES(category),
+                hsn_code = VALUES(hsn_code),
+                min_stock = VALUES(min_stock),
+                tablets_per_strip = VALUES(tablets_per_strip),
+                row_location = VALUES(row_location),
+                col_location = VALUES(col_location),
+                generic_name = VALUES(generic_name),
+                brand_name = VALUES(brand_name),
+                agency_name = VALUES(agency_name)";
     
     $stmt = $conn->prepare($sql);
-    $stmt->execute([$item_code, $name, $category, $hsn_code, $batch_number, $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price, $stock, $stock, $min_stock, $tablets_per_strip]);
+    $stmt->execute([$item_code, $name, $generic_name, $brand_name, $agency_name, $category, $hsn_code, $batch_number, $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price, $stock, $stock, $min_stock, $tablets_per_strip, $row_location, $col_location]);
     
     // Auto-save new category to agency_categories
     if (!empty($category)) {
@@ -1313,16 +1423,26 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
     $hsn_code = $input['hsn_code'] ?? '';
     $tablets_per_strip = (int)($input['tablets_per_strip'] ?? 0);
     $min_stock = (int)($input['min_stock'] ?? 0);
+    $row_location = trim($input['row_location'] ?? '');
+    $col_location = trim($input['col_location'] ?? '');
+    $generic_name = trim($input['generic_name'] ?? '');
+    if ($generic_name === '') {
+        $generic_name = get_mapped_generic_name($conn, $name);
+    }
+    $brand_name = trim($input['brand_name'] ?? '');
+    $agency_name = trim($input['agency_name'] ?? '');
 
     $stmt = $conn->prepare("UPDATE inventory SET 
-        item_code = ?, name = ?, category = ?, hsn_code = ?, batch_number = ?,
+        item_code = ?, name = ?, generic_name = ?, brand_name = ?, agency_name = ?,
+        category = ?, hsn_code = ?, batch_number = ?,
         mfg_date = ?, expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?,
-        stock = ?, tablets_per_strip = ?, min_stock = ?
+        stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?
         WHERE id = ?");
     $stmt->execute([
-        $item_code, $name, $category, $hsn_code, $batch_number,
+        $item_code, $name, $generic_name, $brand_name, $agency_name,
+        $category, $hsn_code, $batch_number,
         $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price,
-        $stock, $tablets_per_strip, $min_stock, $id
+        $stock, $tablets_per_strip, $min_stock, $row_location, $col_location, $id
     ]);
 
     // Auto-save new category to agency_categories
@@ -1518,7 +1638,7 @@ if ($uri === '/api/scans/all' && $method === 'GET') {
 if ($uri === '/api/patients/all' && $method === 'GET') {
     enforce_api_auth(['receptionist']);
     $conn = get_db();
-    $stmt = $conn->query("SELECT p.name, p.phone, p.age, p.gender, p.address,
+    $stmt = $conn->query("SELECT p.name, p.phone, MAX(p.age) as age, MAX(p.gender) as gender, MAX(p.address) as address,
                COUNT(pr.id) as total_visits, 
                SUM(pr.paid_amount) as total_paid,
                SUM(pr.balance_amount) as total_balance,
@@ -2083,6 +2203,67 @@ if ($uri === '/api/treatment/search' && $method === 'GET') {
 // API — WHATSAPP LINK
 // ═══════════════════════════════════════════
 
+if (preg_match('/^\/api\/whatsapp_link\/direct\/(\d+)$/', $uri, $matches)) {
+    enforce_api_auth(['pharmacist']);
+    $sale_id = $matches[1];
+    $conn = get_db();
+    $stmt = $conn->prepare("SELECT * FROM direct_sales WHERE id=?");
+    $stmt->execute([$sale_id]);
+    $rec = $stmt->fetch();
+    
+    if (!$rec) json_response(['error' => 'Not found'], 404);
+
+    $medicines = json_decode($rec['medicines'], true) ?: [];
+    $medicine_total = (float)$rec['total_amount'];
+    $injection_cost = (float)$rec['injection_cost'];
+    $iv_cost = (float)$rec['iv_cost'];
+    $upt_cost = (float)$rec['upt_cost'];
+    $paid_amount = (float)$rec['paid_amount'];
+    $balance_amount = (float)$rec['balance_amount'];
+    $grand_total = $medicine_total + $injection_cost + $iv_cost + $upt_cost;
+
+    $status_text = ($balance_amount > 0) ? "🛑 *Pending Amount: ₹" . number_format($balance_amount, 2) . " to be paid later*" : (($paid_amount > $grand_total) ? "💰 *Return Amount: ₹" . number_format($paid_amount - $grand_total, 2) . "*" : "✅ *Payment Completed*");
+
+    $msg = "🏥 *Crescent Clinic and Scans*\n➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n"
+         . "*Patient:* {$rec['customer_name']}\n*Phone:* {$rec['mobile_number']}\n*Token:* DS-{$rec['id']}\n*Doctor:* Direct Medicine Sales\n"
+         . "*Date/Time:* " . date('d-m-Y h:i A', strtotime($rec['created_at'])) . "\n"
+         . "➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n";
+    
+    if ($medicines) {
+        $msg .= "*Medicines:*\n";
+        foreach ($medicines as $i => $m) {
+            $msg .= "  " . ($i + 1) . ". {$m['name']} x{$m['qty']} = ₹" . number_format($m['amount'], 2) . "\n";
+        }
+        $msg .= "\n*Medicines Total: ₹" . number_format($medicine_total, 2) . "*\n";
+    }
+
+    if ($injection_cost > 0) $msg .= "*Injection Fee: ₹" . number_format($injection_cost, 2) . "*\n";
+    if ($iv_cost > 0) $msg .= "*IV Fee: ₹" . number_format($iv_cost, 2) . "*\n";
+    if ($upt_cost > 0) $msg .= "*UPT Card Fee: ₹" . number_format($upt_cost, 2) . "*\n";
+
+    $msg .= "➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n*Grand Total: ₹" . number_format($grand_total, 2) . "*\n"
+         . "*Paid via Cash: ₹" . number_format($rec['cash_amount'], 2) . "*\n"
+         . "*Paid via GPay: ₹" . number_format($rec['gpay_amount'], 2) . "*\n"
+         . "*Paid via PhonePe: ₹" . number_format($rec['phonepe_amount'] ?? 0, 2) . "*\n"
+         . "*Total Paid: ₹" . number_format($paid_amount, 2) . "*\n\n"
+         . $status_text . "\n"
+         . "➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\nThank you!";
+
+    $rec['doctor_name'] = 'Direct Medicine Sales';
+    $rec['doctor_type'] = 'Pharmacy';
+    $rec['medicines'] = $medicines;
+    $rec['name'] = $rec['customer_name'];
+    $rec['phone'] = $rec['mobile_number'];
+    $rec['token'] = 'DS-' . $rec['id'];
+
+    $phone = preg_replace('/[^0-9]/', '', $rec['phone']);
+    if (strlen($phone) === 10) {
+        $phone = '91' . $phone;
+    }
+    $link = "https://wa.me/$phone?text=" . urlencode($msg);
+    json_response(['link' => $link, 'data' => $rec]);
+}
+
 if (preg_match('/^\/api\/whatsapp_link\/(\d+)$/', $uri, $matches)) {
     enforce_api_auth(['receptionist', 'pharmacist']);
     $presc_id = $matches[1];
@@ -2235,7 +2416,7 @@ if ($uri === '/api/management/verify_security' && $method === 'POST') {
 if ($uri === '/api/management/users' && $method === 'GET') {
     enforce_admin();
     $conn = get_db();
-    $stmt = $conn->query("SELECT id, username, role, doctor_type, display_name, details, specialization, photo_path, token_prefix, is_active, doctor_registration_number FROM users ORDER BY role, display_name");
+    $stmt = $conn->query("SELECT id, username, password, role, doctor_type, display_name, details, specialization, photo_path, token_prefix, is_active, doctor_registration_number, admin_security_password FROM users ORDER BY role, display_name");
     $rows = $stmt->fetchAll();
     foreach ($rows as &$row) {
         if (!empty($row['photo_path']) && strpos($row['photo_path'], '/static/') !== 0) {
@@ -2249,23 +2430,66 @@ if ($uri === '/api/management/user/save' && $method === 'POST') {
     enforce_admin();
     $id = $_POST['id'] ?? null;
     $username = $_POST['username'];
-    $password = $_POST['password'] ?? null; // Optional if editing
+    $password_raw = $_POST['password'] ?? '';
     $role = $_POST['role'];
-    $doctor_type = $_POST['doctor_type'] ?: null;
+    
+    // Normalize doctor_type and token_prefix
+    $doctor_type = $_POST['doctor_type'] ?? null;
+    if ($doctor_type === 'undefined' || $doctor_type === '') {
+        $doctor_type = null;
+    }
+    
     $display_name = $_POST['display_name'];
     $details = $_POST['details'] ?? '';
     $specialization = $_POST['specialization'] ?? '';
-    $token_prefix = $_POST['token_prefix'] ?? null;
-    $is_active = isset($_POST['is_active']) ? (int)$_POST['is_active'] : 1;
-    $doctor_registration_number = $_POST['doctor_registration_number'] ?? null;
     
-    $admin_security_password = $_POST['admin_security_password'] ?? '123';
-    // Hash new/updated passwords
-    if ($password) {
-        $password = password_hash($password, PASSWORD_BCRYPT);
+    $token_prefix = $_POST['token_prefix'] ?? null;
+    if ($token_prefix === 'undefined' || $token_prefix === '') {
+        $token_prefix = null;
     }
-    // Hash admin_security_password
-    $admin_security_password = password_hash($admin_security_password, PASSWORD_BCRYPT);
+    
+    $is_active = isset($_POST['is_active']) ? (int)$_POST['is_active'] : 1;
+    
+    $doctor_registration_number = $_POST['doctor_registration_number'] ?? null;
+    if ($doctor_registration_number === 'undefined' || $doctor_registration_number === '') {
+        $doctor_registration_number = null;
+    }
+    
+    $admin_sec_raw = $_POST['admin_security_password'] ?? '';
+
+    $conn = get_db();
+    
+    // Retrieve existing credentials if editing
+    $db_password = null;
+    $db_admin_security_password = '123';
+    if ($id) {
+        $stmt = $conn->prepare("SELECT password, admin_security_password FROM users WHERE id = ?");
+        $stmt->execute([$id]);
+        $existing_creds = $stmt->fetch();
+        if ($existing_creds) {
+            $db_password = $existing_creds['password'];
+            $db_admin_security_password = $existing_creds['admin_security_password'];
+        }
+    }
+
+    // Process normal password
+    if ($password_raw !== '' && $password_raw !== 'undefined') {
+        $password = $password_raw;
+    } else {
+        $password = $db_password;
+    }
+
+    // Process admin security password
+    if ($role === 'management') {
+        if ($admin_sec_raw !== '' && $admin_sec_raw !== 'undefined') {
+            $admin_security_password = $admin_sec_raw;
+        } else {
+            $admin_security_password = $db_admin_security_password;
+        }
+    } else {
+        // Keep existing or default to '123' if not set
+        $admin_security_password = $db_admin_security_password ?: '123';
+    }
     
     $photo_path = $_POST['existing_photo'] ?? null;
     if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
@@ -2275,8 +2499,6 @@ if ($uri === '/api/management/user/save' && $method === 'POST') {
         upload_to_supabase($_FILES['photo']['tmp_name'], 'profiles', $filename, $mime_type);
         $photo_path = 'profiles/' . $filename;
     }
-
-    $conn = get_db();
     
     // Check for duplicate username
     $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
@@ -2286,7 +2508,7 @@ if ($uri === '/api/management/user/save' && $method === 'POST') {
         json_response(['success' => false, 'error' => 'Username already exists. Please choose a different username.'], 400);
     }
     
-    // Check for duplicate display name (Optional but helpful for the user's request)
+    // Check for duplicate display name
     $stmt = $conn->prepare("SELECT id FROM users WHERE display_name = ? AND role = ?");
     $stmt->execute([$display_name, $role]);
     $existing_name = $stmt->fetch();
@@ -2295,15 +2517,9 @@ if ($uri === '/api/management/user/save' && $method === 'POST') {
     }
 
     if ($id) {
-        if ($password) {
-            $stmt = $conn->prepare("UPDATE users SET username=?, password=?, role=?, doctor_type=?, display_name=?, details=?, specialization=?, photo_path=?, token_prefix=?, is_active=?, admin_security_password=?, doctor_registration_number=? WHERE id=?");
-            $stmt->execute([$username, $password, $role, $doctor_type, $display_name, $details, $specialization, $photo_path, $token_prefix, $is_active, $admin_security_password, $doctor_registration_number, $id]);
-        } else {
-            // Keep existing password, but we still update the admin_security_password hash. Wait, if admin_security_password wasn't modified, what happens? 
-            // The UI usually sends it anyway. We'll update it.
-            $stmt = $conn->prepare("UPDATE users SET username=?, role=?, doctor_type=?, display_name=?, details=?, specialization=?, photo_path=?, token_prefix=?, is_active=?, admin_security_password=?, doctor_registration_number=? WHERE id=?");
-            $stmt->execute([$username, $role, $doctor_type, $display_name, $details, $specialization, $photo_path, $token_prefix, $is_active, $admin_security_password, $doctor_registration_number, $id]);
-        }
+        // Update user
+        $stmt = $conn->prepare("UPDATE users SET username=?, password=?, role=?, doctor_type=?, display_name=?, details=?, specialization=?, photo_path=?, token_prefix=?, is_active=?, admin_security_password=?, doctor_registration_number=? WHERE id=?");
+        $stmt->execute([$username, $password, $role, $doctor_type, $display_name, $details, $specialization, $photo_path, $token_prefix, $is_active, $admin_security_password, $doctor_registration_number, $id]);
     } else {
         if (!$password) {
             json_response(['success' => false, 'error' => 'Password is required for new users.'], 400);
@@ -2596,25 +2812,30 @@ if ($uri === '/api/agency/items/add' && $method === 'POST') {
     $data = $input;
     $conn = get_db();
     try {
+        $generic_name = trim($data['generic_name'] ?? '');
+        if ($generic_name === '') {
+            $generic_name = get_mapped_generic_name($conn, $data['item_name'] ?? '');
+        }
+
         if (empty($data['id'])) {
             // Auto-detect category if not provided or empty
             $category = $data['category'] ?? '';
             if (empty(trim($category))) {
-                $category = detect_medicine_category($data['item_name']);
+                $category = detect_medicine_category($data['item_name'] ?? '');
             }
-            $stmt = $conn->prepare("INSERT INTO agency_items (item_code, item_name, generic_name, brand_name, category, medicine_type, hsn_code, unit, batch_number, mfg_date, expiry_date, purchase_price, selling_price, mrp, discount, gst, opening_stock, stock, min_stock, manufacturer, supplier_id, gst_percentage, reorder_level, rack_location, barcode, qr_code) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([$data['item_code']??'', $data['item_name'], $data['generic_name']??'', $data['brand_name']??'', $category, $data['medicine_type']??'', $data['hsn_code']??'', $data['unit']??'', $data['batch_number'], $data['mfg_date']??'', $data['expiry_date']??'', $data['purchase_price']??0, $data['selling_price']??0, $data['mrp']??0, $data['discount']??0, $data['gst']??0, $data['opening_stock']??0, $data['opening_stock']??0, $data['min_stock']??0, $data['manufacturer']??'', $data['supplier_id']??null, $data['gst_percentage']??0, $data['reorder_level']??0, $data['rack_location']??'', $data['barcode']??'', $data['qr_code']??'']);
+            $stmt = $conn->prepare("INSERT INTO agency_items (item_code, item_name, generic_name, brand_name, category, medicine_type, hsn_code, unit, batch_number, mfg_date, expiry_date, purchase_price, selling_price, mrp, discount, gst, opening_stock, stock, min_stock, manufacturer, supplier_id, gst_percentage, reorder_level, rack_location, barcode, qr_code, row_location, col_location) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$data['item_code']??'', $data['item_name']??'', $generic_name, $data['brand_name']??'', $category, $data['medicine_type']??'', $data['hsn_code']??'', $data['unit']??'', $data['batch_number']??'', $data['mfg_date']??'', $data['expiry_date']??'', $data['purchase_price']??0, $data['selling_price']??0, $data['mrp']??0, $data['discount']??0, $data['gst']??0, $data['opening_stock']??0, $data['opening_stock']??0, $data['min_stock']??0, $data['manufacturer']??'', $data['supplier_id']??null, $data['gst_percentage']??0, $data['reorder_level']??0, $data['rack_location']??'', $data['barcode']??'', $data['qr_code']??'', $data['row_location']??'', $data['col_location']??'']);
             $item_id = $conn->lastInsertId();
-            $conn->prepare("INSERT INTO agency_audit_trail (user_id, action, table_name, record_id, details) VALUES (?, ?, ?, ?, ?)")->execute([$_SESSION['user_id'] ?? 0, 'CREATE', 'agency_items', $item_id, 'Added new item: ' . $data['item_name']]);
+            $conn->prepare("INSERT INTO agency_audit_trail (user_id, action, table_name, record_id, details) VALUES (?, ?, ?, ?, ?)")->execute([$_SESSION['user_id'] ?? 0, 'CREATE', 'agency_items', $item_id, 'Added new item: ' . ($data['item_name'] ?? '')]);
             
             // Record opening stock as movement if > 0
             if (($data['opening_stock'] ?? 0) > 0) {
                 $conn->prepare("INSERT INTO agency_inventory_movements (item_id, movement_type, quantity, reference_id, reference_type, notes) VALUES (?, ?, ?, ?, ?, ?)")->execute([$item_id, 'IN', $data['opening_stock']??0, null, 'Opening Stock', 'Initial stock entry']);
             }
         } else {
-            $stmt = $conn->prepare("UPDATE agency_items SET item_code=?, item_name=?, generic_name=?, brand_name=?, category=?, medicine_type=?, hsn_code=?, unit=?, batch_number=?, mfg_date=?, expiry_date=?, purchase_price=?, selling_price=?, mrp=?, discount=?, gst=?, min_stock=?, manufacturer=?, supplier_id=?, gst_percentage=?, reorder_level=?, rack_location=?, barcode=?, qr_code=? WHERE id=?");
-            $stmt->execute([$data['item_code']??'', $data['item_name'], $data['generic_name']??'', $data['brand_name']??'', $data['category']??'', $data['medicine_type']??'', $data['hsn_code']??'', $data['unit']??'', $data['batch_number'], $data['mfg_date']??'', $data['expiry_date']??'', $data['purchase_price']??0, $data['selling_price']??0, $data['mrp']??0, $data['discount']??0, $data['gst']??0, $data['min_stock']??0, $data['manufacturer']??'', $data['supplier_id']??null, $data['gst_percentage']??0, $data['reorder_level']??0, $data['rack_location']??'', $data['barcode']??'', $data['qr_code']??'', $data['id']]);
-            $conn->prepare("INSERT INTO agency_audit_trail (user_id, action, table_name, record_id, details) VALUES (?, ?, ?, ?, ?)")->execute([$_SESSION['user_id'] ?? 0, 'UPDATE', 'agency_items', $data['id'], 'Updated item details: ' . $data['item_name']]);
+            $stmt = $conn->prepare("UPDATE agency_items SET item_code=?, item_name=?, generic_name=?, brand_name=?, category=?, medicine_type=?, hsn_code=?, unit=?, batch_number=?, mfg_date=?, expiry_date=?, purchase_price=?, selling_price=?, mrp=?, discount=?, gst=?, min_stock=?, manufacturer=?, supplier_id=?, gst_percentage=?, reorder_level=?, rack_location=?, barcode=?, qr_code=?, row_location=?, col_location=? WHERE id=?");
+            $stmt->execute([$data['item_code']??'', $data['item_name']??'', $generic_name, $data['brand_name']??'', $data['category']??'', $data['medicine_type']??'', $data['hsn_code']??'', $data['unit']??'', $data['batch_number']??'', $data['mfg_date']??'', $data['expiry_date']??'', $data['purchase_price']??0, $data['selling_price']??0, $data['mrp']??0, $data['discount']??0, $data['gst']??0, $data['min_stock']??0, $data['manufacturer']??'', $data['supplier_id']??null, $data['gst_percentage']??0, $data['reorder_level']??0, $data['rack_location']??'', $data['barcode']??'', $data['qr_code']??'', $data['row_location']??'', $data['col_location']??'', $data['id']]);
+            $conn->prepare("INSERT INTO agency_audit_trail (user_id, action, table_name, record_id, details) VALUES (?, ?, ?, ?, ?)")->execute([$_SESSION['user_id'] ?? 0, 'UPDATE', 'agency_items', $data['id'], 'Updated item details: ' . ($data['item_name'] ?? '')]);
             $item_id = $data['id'];
         }
         
@@ -2858,6 +3079,11 @@ if ($uri === '/api/agency/purchase/add' && $method === 'POST') {
 
         foreach ($data['items'] as $item) {
             $item_id = $item['item_id'] ?? null;
+            $item_generic = trim($item['generic_name'] ?? '');
+            if ($item_generic === '') {
+                $item_generic = get_mapped_generic_name($conn, $item['item_name'] ?? '');
+            }
+            
             if (!$item_id) {
                 $check = $conn->prepare("SELECT id FROM agency_items WHERE item_name = ? AND batch_number = ?");
                 $batch_to_check = $item['batch_number'] ?? '';
@@ -2866,19 +3092,19 @@ if ($uri === '/api/agency/purchase/add' && $method === 'POST') {
                 if ($exist) {
                     $item_id = $exist['id'];
                 } else {
-                    $auto_cat = detect_medicine_category($item['item_name']);
-                    $ins = $conn->prepare("INSERT INTO agency_items (item_name, batch_number, expiry_date, purchase_price, selling_price, mrp, stock, category, supplier_id) VALUES (?,?,?,?,?,?,?,?,?)");
-                    $ins->execute([$item['item_name'], $item['batch_number']??'', $item['expiry_date']??'', (float)($item['purchase_rate']??0), (float)($item['selling_price']??0), (float)($item['mrp']??0), 0, $auto_cat, $supplier_id]);
+                    $auto_cat = detect_medicine_category($item['item_name'] ?? '');
+                    $ins = $conn->prepare("INSERT INTO agency_items (item_name, batch_number, expiry_date, purchase_price, selling_price, mrp, stock, category, supplier_id, generic_name, brand_name) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+                    $ins->execute([$item['item_name'] ?? '', $item['batch_number']??'', $item['expiry_date']??'', (float)($item['purchase_rate']??0), (float)($item['selling_price']??0), (float)($item['mrp']??0), 0, $auto_cat, $supplier_id, $item_generic, $item['brand_name']??$item['item_name']]);
                     $item_id = $conn->lastInsertId();
                 }
             }
 
-            // Always auto-detect and update category for this item
-            $auto_cat = detect_medicine_category($item['item_name']);
+            // Always auto-detect and update category, generic_name, and brand_name for this item
+            $auto_cat = detect_medicine_category($item['item_name'] ?? '');
+            $updCat = $conn->prepare("UPDATE agency_items SET category = ?, generic_name = ?, brand_name = ? WHERE id = ?");
+            $updCat->execute([$auto_cat, $item_generic, $item['brand_name']??$item['item_name'], $item_id]);
+            
             if (!empty($auto_cat)) {
-                $updCat = $conn->prepare("UPDATE agency_items SET category = ? WHERE id = ?");
-                $updCat->execute([$auto_cat, $item_id]);
-                
                 // Auto-save detected category to categories list
                 $chkC = $conn->prepare("SELECT id FROM agency_categories WHERE name = ?");
                 $chkC->execute([$auto_cat]);
@@ -2887,13 +3113,14 @@ if ($uri === '/api/agency/purchase/add' && $method === 'POST') {
                 }
             }
 
-            $ins_item = $conn->prepare("INSERT INTO agency_purchase_items (purchase_id, item_id, hsn_code, batch_number, mfg_date, expiry_date, quantity, free_qty, unit, purchase_rate, mrp, discount, discount_percentage, taxable_amount, tax_amount, cgst, sgst, gst, gst_percentage, total_amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $ins_item = $conn->prepare("INSERT INTO agency_purchase_items (purchase_id, item_id, hsn_code, batch_number, mfg_date, expiry_date, quantity, free_qty, unit, purchase_rate, mrp, discount, discount_percentage, taxable_amount, tax_amount, cgst, sgst, gst, gst_percentage, total_amount, generic_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $ins_item->execute([
                 $purc_id, $item_id, $item['hsn_code']??'', $item['batch_number']??'', $item['mfg_date']??'', 
                 $item['expiry_date']??'', (int)($item['quantity']??0), (int)($item['free_qty']??0), $item['unit']??'', 
                 (float)($item['purchase_rate']??0), (float)($item['mrp']??0), (float)($item['discount']??0), (float)($item['discount_percentage']??0),
                 (float)($item['taxable_amount']??0), (float)($item['tax_amount']??0), (float)($item['cgst']??0), (float)($item['sgst']??0), 
-                (float)($item['gst']??0), (float)($item['gst_percentage']??0), (float)($item['total_amount']??0)
+                (float)($item['gst']??0), (float)($item['gst_percentage']??0), (float)($item['total_amount']??0),
+                $item_generic
             ]);
 
             $total_added = ($item['quantity']??0) + ($item['free_qty']??0);
@@ -3193,13 +3420,13 @@ if ($uri === '/api/agency/ocr_scan' && $method === 'POST') {
         ]
     ];
 
-    $models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-pro-vision'];
+    $models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-2.5-pro', 'gemini-pro-latest'];
     $json_data = null;
     $last_error = "Unknown error";
     $all_errors = [];
 
     foreach ($models_to_try as $model) {
-        $api_version = ($model === 'gemini-pro-vision') ? 'v1beta' : 'v1';
+        $api_version = 'v1beta';
         $ch = curl_init("https://generativelanguage.googleapis.com/{$api_version}/models/{$model}:generateContent?key=" . $api_key);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
@@ -3880,76 +4107,7 @@ if ($uri === '/api/upi_accounts' && $method === 'GET') {
     }
 }
 
-if ($uri === '/api/upi_accounts/add' && $method === 'POST') {
-    enforce_admin();
-    $input = json_decode(file_get_contents('php://input'), true);
-    $conn = get_db();
-    try {
-        $stmt = $conn->prepare("INSERT INTO upi_accounts (account_name, short_name, bank_name, account_number, upi_id, notes, is_active, account_holder_name, ifsc_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $input['account_name'] ?? '',
-            $input['short_name'] ?? '',
-            $input['bank_name'] ?? '',
-            $input['account_number'] ?? '',
-            $input['upi_id'] ?? '',
-            $input['notes'] ?? '',
-            1,
-            $input['account_holder_name'] ?? '',
-            $input['ifsc_code'] ?? ''
-        ]);
-        json_response(['success' => true]);
-    } catch (PDOException $e) {
-        if ($e->getCode() == 23000) {
-            json_response(['success' => false, 'error' => 'Short name must be unique'], 400);
-        }
-        json_response(['success' => false, 'error' => $e->getMessage()], 400);
-    }
-}
 
-if ($uri === '/api/upi_accounts/update' && $method === 'POST') {
-    enforce_admin();
-    $input = json_decode(file_get_contents('php://input'), true);
-    $conn = get_db();
-    try {
-        $stmt = $conn->prepare("UPDATE upi_accounts SET account_name=?, short_name=?, bank_name=?, account_number=?, upi_id=?, notes=?, account_holder_name=?, ifsc_code=? WHERE id=?");
-        $stmt->execute([
-            $input['account_name'] ?? '',
-            $input['short_name'] ?? '',
-            $input['bank_name'] ?? '',
-            $input['account_number'] ?? '',
-            $input['upi_id'] ?? '',
-            $input['notes'] ?? '',
-            $input['account_holder_name'] ?? '',
-            $input['ifsc_code'] ?? '',
-            $input['id']
-        ]);
-        json_response(['success' => true]);
-    } catch (PDOException $e) {
-        if ($e->getCode() == 23000) {
-            json_response(['success' => false, 'error' => 'Short name must be unique'], 400);
-        }
-        json_response(['success' => false, 'error' => $e->getMessage()], 400);
-    }
-}
-
-if ($uri === '/api/upi_accounts/toggle' && $method === 'POST') {
-    enforce_admin();
-    $input = json_decode(file_get_contents('php://input'), true);
-    $conn = get_db();
-    $stmt = $conn->prepare("UPDATE upi_accounts SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?");
-    $stmt->execute([$input['id']]);
-    json_response(['success' => true]);
-}
-
-if ($uri === '/api/upi_accounts/delete' && $method === 'POST') {
-    enforce_admin();
-    $input = json_decode(file_get_contents('php://input'), true);
-    $conn = get_db();
-    enforce_api_auth(['receptionist', 'pharmacist']);
-    $conn = get_db();
-    $stmt = $conn->query("SELECT * FROM upi_accounts ORDER BY id ASC");
-    json_response($stmt->fetchAll(PDO::FETCH_ASSOC));
-}
 
 if ($uri === '/api/upi_accounts/add' && $method === 'POST') {
     enforce_admin();
@@ -4036,6 +4194,590 @@ if ($uri === '/api/cron/backup' && $method === 'GET') {
 
     $status = run_auto_backup_check();
     json_response($status);
+}
+
+// ═══════════════════════════════════════════
+// API — GENERIC MEDICINE MANAGEMENT MODULE
+// ═══════════════════════════════════════════
+
+/**
+ * GET /api/generics/list
+ * Returns all distinct generic names with their brand medicine counts.
+ * Combines agency_items and inventory so no mapping is missed.
+ * Supports optional ?q= search filter for the Generic Medicine List page.
+ */
+if ($uri === '/api/generics/list' && $method === 'GET') {
+    enforce_api_auth(['pharmacist']);
+    $q = trim($_GET['q'] ?? '');
+    $conn = get_db();
+    try {
+        $params = [];
+        $conds_agency = [];
+        $conds_inventory = [];
+        if ($q !== '') {
+            $conds_agency[] = "(generic_name LIKE ? OR item_name LIKE ?)";
+            $params[] = "%$q%";
+            $params[] = "%$q%";
+            
+            $conds_inventory[] = "(generic_name LIKE ? OR name LIKE ?)";
+            $params[] = "%$q%";
+            $params[] = "%$q%";
+        }
+        
+        $where_agency = !empty($conds_agency) ? "WHERE " . implode(" AND ", $conds_agency) : "";
+        $where_inventory = !empty($conds_inventory) ? "WHERE " . implode(" AND ", $conds_inventory) : "";
+        
+        $sql = "
+            SELECT
+                MAX(generic_name) AS generic_name,
+                COUNT(CASE WHEN LOWER(brand_name) != '(unmapped brand)' THEN 1 END) AS brand_count
+            FROM (
+                SELECT 
+                    COALESCE(NULLIF(TRIM(generic_name), ''), '(Unmapped)') AS generic_name, 
+                    TRIM(item_name) AS brand_name, 
+                    TRIM(batch_number) AS batch_number
+                FROM agency_items
+                $where_agency
+                
+                UNION ALL
+                
+                SELECT 
+                    COALESCE(NULLIF(TRIM(generic_name), ''), '(Unmapped)') AS generic_name, 
+                    TRIM(name) AS brand_name, 
+                    TRIM(batch_number) AS batch_number
+                FROM inventory i
+                " . ($where_inventory !== '' ? $where_inventory . " AND " : "WHERE ") . " NOT EXISTS (
+                    SELECT 1 FROM agency_items ai 
+                    WHERE ai.item_name = i.name AND ai.batch_number = i.batch_number
+                )
+            ) AS combined
+            GROUP BY LOWER(TRIM(generic_name))
+            ORDER BY generic_name ASC
+        ";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        json_response($results);
+    } catch (Exception $e) {
+        json_response(['error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * GET /api/generics/brands?generic=Paracetamol
+ * Returns all distinct brand medicines mapped to the given generic name with full live stock info.
+ */
+if ($uri === '/api/generics/brands' && $method === 'GET') {
+    enforce_api_auth(['pharmacist']);
+    $generic = trim($_GET['generic'] ?? '');
+    if ($generic === '') {
+        json_response(['error' => 'generic parameter is required'], 400);
+    }
+    $conn = get_db();
+    try {
+        $is_unmapped = (strtolower(trim($generic)) === '(unmapped)');
+        
+        if ($is_unmapped) {
+            $stmt = $conn->prepare("
+                SELECT
+                    brand_name,
+                    generic_name,
+                    category,
+                    batch_number,
+                    expiry_date,
+                    mrp,
+                    stock,
+                    supplier_name,
+                    row_location,
+                    col_location,
+                    pack_size,
+                    min_stock
+                FROM (
+                    SELECT
+                        ai.item_name AS brand_name,
+                        ai.generic_name,
+                        ai.category,
+                        ai.batch_number,
+                        ai.expiry_date,
+                        ai.mrp,
+                        ai.stock,
+                        s.name AS supplier_name,
+                        ai.row_location,
+                        ai.col_location,
+                        ai.unit AS pack_size,
+                        ai.min_stock
+                    FROM agency_items ai
+                    LEFT JOIN agency_suppliers s ON ai.supplier_id = s.id
+                    WHERE ai.generic_name IS NULL OR TRIM(ai.generic_name) = ''
+                    
+                    UNION ALL
+                    
+                    SELECT
+                        i.name AS brand_name,
+                        i.generic_name,
+                        i.category,
+                        i.batch_number,
+                        i.expiry_date,
+                        i.mrp,
+                        i.stock,
+                        i.agency_name AS supplier_name,
+                        i.row_location,
+                        i.col_location,
+                        i.tablets_per_strip AS pack_size,
+                        i.min_stock
+                    FROM inventory i
+                    WHERE (i.generic_name IS NULL OR TRIM(i.generic_name) = '')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM agency_items ai 
+                          WHERE ai.item_name = i.name AND ai.batch_number = i.batch_number
+                      )
+                ) AS combined
+                ORDER BY brand_name ASC, batch_number ASC
+            ");
+            $stmt->execute([]);
+        } else {
+            $stmt = $conn->prepare("
+                SELECT
+                    brand_name,
+                    generic_name,
+                    category,
+                    batch_number,
+                    expiry_date,
+                    mrp,
+                    stock,
+                    supplier_name,
+                    row_location,
+                    col_location,
+                    pack_size,
+                    min_stock
+                FROM (
+                    SELECT
+                        ai.item_name AS brand_name,
+                        ai.generic_name,
+                        ai.category,
+                        ai.batch_number,
+                        ai.expiry_date,
+                        ai.mrp,
+                        ai.stock,
+                        s.name AS supplier_name,
+                        ai.row_location,
+                        ai.col_location,
+                        ai.unit AS pack_size,
+                        ai.min_stock
+                    FROM agency_items ai
+                    LEFT JOIN agency_suppliers s ON ai.supplier_id = s.id
+                    WHERE TRIM(LOWER(ai.generic_name)) = TRIM(LOWER(?))
+                    
+                    UNION ALL
+                    
+                    SELECT
+                        i.name AS brand_name,
+                        i.generic_name,
+                        i.category,
+                        i.batch_number,
+                        i.expiry_date,
+                        i.mrp,
+                        i.stock,
+                        i.agency_name AS supplier_name,
+                        i.row_location,
+                        i.col_location,
+                        i.tablets_per_strip AS pack_size,
+                        i.min_stock
+                    FROM inventory i
+                    WHERE TRIM(LOWER(i.generic_name)) = TRIM(LOWER(?))
+                      AND NOT EXISTS (
+                          SELECT 1 FROM agency_items ai 
+                          WHERE ai.item_name = i.name AND ai.batch_number = i.batch_number
+                      )
+                ) AS combined
+                ORDER BY brand_name ASC, batch_number ASC
+            ");
+            $stmt->execute([$generic, $generic]);
+        }
+        $brands = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        json_response($brands);
+    } catch (Exception $e) {
+        json_response(['error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * POST /api/generics/update-mapping
+ * Body: { brand_name: "DOLO 650", new_generic: "Paracetamol + Caffeine" }
+ *
+ * Updates the generic_name for ALL rows matching brand_name in:
+ *   1. agency_items  (item_name = brand_name)
+ *   2. inventory     (name      = brand_name)
+ * This ensures a single source of truth — one edit propagates everywhere.
+ */
+if ($uri === '/api/generics/update-mapping' && $method === 'POST') {
+    enforce_api_auth(['pharmacist']);
+    $orig_brand = trim($input['orig_brand_name'] ?? '');
+    $orig_batch = trim($input['orig_batch_number'] ?? '');
+    
+    $brand_name  = trim($input['brand_name'] ?? '');
+    $generic_name = trim($input['generic_name'] ?? '');
+    $category = trim($input['category'] ?? 'Tablet');
+    $batch_number = trim($input['batch_number'] ?? '');
+    $expiry_date = trim($input['expiry_date'] ?? '');
+    $mrp = (float)($input['mrp'] ?? 0);
+    $stock = (int)($input['stock'] ?? 0);
+    $supplier_name = trim($input['supplier_name'] ?? '');
+    $row_location = trim($input['row_location'] ?? '');
+    $col_location = trim($input['col_location'] ?? '');
+    $pack_size = trim($input['pack_size'] ?? '');
+    $min_stock = (int)($input['min_stock'] ?? 0);
+
+    if ($orig_brand === '' || $orig_batch === '') {
+        json_response(['error' => 'orig_brand_name and orig_batch_number are required'], 400);
+    }
+
+    $conn = get_db();
+    try {
+        $conn->beginTransaction();
+
+        $supplier_id = null;
+        if (!empty($supplier_name)) {
+            $check = $conn->prepare("SELECT id FROM agency_suppliers WHERE name = ? OR company_name = ?");
+            $check->execute([$supplier_name, $supplier_name]);
+            $supplier_id = $check->fetchColumn();
+            
+            if (!$supplier_id) {
+                $ins = $conn->prepare("INSERT INTO agency_suppliers (name, company_name) VALUES (?, ?)");
+                $ins->execute([$supplier_name, $supplier_name]);
+                $supplier_id = $conn->lastInsertId();
+            }
+        }
+
+        // Update agency_items
+        $stmt = $conn->prepare("
+            UPDATE agency_items SET
+                item_name = ?,
+                generic_name = ?,
+                category = ?,
+                batch_number = ?,
+                expiry_date = ?,
+                mrp = ?,
+                stock = ?,
+                unit = ?,
+                row_location = ?,
+                col_location = ?,
+                min_stock = ?,
+                supplier_id = ?
+            WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
+        ");
+        $stmt->execute([
+            $brand_name, $generic_name, $category, $batch_number, $expiry_date,
+            $mrp, $stock, $pack_size, $row_location, $col_location, $min_stock, $supplier_id,
+            $orig_brand, $orig_batch
+        ]);
+        $agency_rows = $stmt->rowCount();
+
+        // Update inventory
+        $stmt2 = $conn->prepare("
+            UPDATE inventory SET
+                name = ?,
+                generic_name = ?,
+                category = ?,
+                batch_number = ?,
+                expiry_date = ?,
+                mrp = ?,
+                stock = ?,
+                tablets_per_strip = ?,
+                row_location = ?,
+                col_location = ?,
+                min_stock = ?,
+                agency_name = ?
+            WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
+        ");
+        $stmt2->execute([
+            $brand_name, $generic_name, $category, $batch_number, $expiry_date,
+            $mrp, $stock, $pack_size, $row_location, $col_location, $min_stock, $supplier_name,
+            $orig_brand, $orig_batch
+        ]);
+        $inv_rows = $stmt2->rowCount();
+
+        // Audit trail
+        $conn->prepare("
+            INSERT INTO agency_audit_trail
+                (user_id, action, table_name, record_id, old_value, new_value, details)
+            VALUES (?, 'GENERIC_REMAP', 'agency_items+inventory', 0, ?, ?, ?)
+        ")->execute([
+            $_SESSION['user_id'] ?? 0,
+            $orig_brand,
+            $brand_name,
+            "Updated medicine details for '$orig_brand' ($orig_batch) -> '$brand_name' ($batch_number)"
+        ]);
+
+        $conn->commit();
+        json_response([
+            'success'       => true,
+            'agency_rows'   => $agency_rows,
+            'inv_rows'      => $inv_rows,
+            'message'       => "Medicine details updated successfully across $agency_rows agency + $inv_rows inventory records."
+        ]);
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) $conn->rollBack();
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * POST /api/generics/delete-generic
+ * Body: { generic_name: "..." }
+ * Clears the generic name (sets to NULL) for all matched rows in agency_items and inventory.
+ */
+if ($uri === '/api/generics/delete-generic' && $method === 'POST') {
+    enforce_api_auth(['pharmacist']);
+    $generic_name = trim($input['generic_name'] ?? '');
+    if ($generic_name === '') {
+        json_response(['error' => 'generic_name is required'], 400);
+    }
+    
+    $conn = get_db();
+    try {
+        $conn->beginTransaction();
+
+        // Update agency_items
+        $stmt = $conn->prepare("
+            UPDATE agency_items SET generic_name = NULL 
+            WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))
+        ");
+        $stmt->execute([$generic_name]);
+        $agency_rows = $stmt->rowCount();
+
+        // Update inventory
+        $stmt2 = $conn->prepare("
+            UPDATE inventory SET generic_name = NULL 
+            WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))
+        ");
+        $stmt2->execute([$generic_name]);
+        $inv_rows = $stmt2->rowCount();
+
+        // Audit trail
+        $conn->prepare("
+            INSERT INTO agency_audit_trail
+                (user_id, action, table_name, record_id, old_value, new_value, details)
+            VALUES (?, 'GENERIC_DELETE', 'agency_items+inventory', 0, ?, NULL, ?)
+        ")->execute([
+            $_SESSION['user_id'] ?? 0,
+            $generic_name,
+            "Deleted generic medicine '$generic_name' mapping across $agency_rows agency + $inv_rows inventory records."
+        ]);
+
+        $conn->commit();
+        json_response([
+            'success'     => true,
+            'message'     => "Generic medicine '$generic_name' deleted. Cleared mappings across $agency_rows agency + $inv_rows inventory records."
+        ]);
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) $conn->rollBack();
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * POST /api/generics/delete-brand-mapping
+ * Body: { brand_name: "...", batch_number: "..." }
+ * Clears the generic name (sets to NULL) for a specific brand mapping in agency_items and inventory.
+ */
+if ($uri === '/api/generics/delete-brand-mapping' && $method === 'POST') {
+    enforce_api_auth(['pharmacist']);
+    $brand_name = trim($input['brand_name'] ?? '');
+    $batch_number = trim($input['batch_number'] ?? '');
+    
+    if ($brand_name === '' || $batch_number === '') {
+        json_response(['error' => 'brand_name and batch_number are required'], 400);
+    }
+    
+    $conn = get_db();
+    try {
+        $conn->beginTransaction();
+
+        // Update agency_items
+        $stmt = $conn->prepare("
+            UPDATE agency_items SET generic_name = NULL 
+            WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
+        ");
+        $stmt->execute([$brand_name, $batch_number]);
+        $agency_rows = $stmt->rowCount();
+
+        // Update inventory
+        $stmt2 = $conn->prepare("
+            UPDATE inventory SET generic_name = NULL 
+            WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
+        ");
+        $stmt2->execute([$brand_name, $batch_number]);
+        $inv_rows = $stmt2->rowCount();
+
+        // Audit log
+        $conn->prepare("
+            INSERT INTO agency_audit_trail
+                (user_id, action, table_name, record_id, old_value, new_value, details)
+            VALUES (?, 'BRAND_UNMAP', 'agency_items+inventory', 0, ?, NULL, ?)
+        ")->execute([
+            $_SESSION['user_id'] ?? 0,
+            $brand_name,
+            "Removed generic mapping for brand '$brand_name' (Batch: $batch_number) across $agency_rows agency + $inv_rows inventory records."
+        ]);
+
+        $conn->commit();
+        json_response([
+            'success' => true,
+            'message' => "Mapping for brand '$brand_name' (Batch: $batch_number) deleted successfully."
+        ]);
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) $conn->rollBack();
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * POST /api/generics/import
+ * Body: { mappings: [ { brand_name: "...", generic_name: "..." }, ... ] }
+ * Performs batch mapping update across both inventory tables.
+ */
+if ($uri === '/api/generics/import' && $method === 'POST') {
+    enforce_api_auth(['pharmacist']);
+    $mappings = $input['mappings'] ?? [];
+    if (!is_array($mappings)) {
+        json_response(['error' => 'Invalid mappings format'], 400);
+    }
+    
+    $conn = get_db();
+    
+    $imported = 0;
+    $duplicate = 0;
+    $skipped = 0;
+    $failed = 0;
+    
+    try {
+        $conn->beginTransaction();
+        
+        // Prepare checks
+        $check_agency = $conn->prepare("SELECT DISTINCT generic_name FROM agency_items WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?))");
+        $check_inv = $conn->prepare("SELECT DISTINCT generic_name FROM inventory WHERE TRIM(LOWER(name)) = TRIM(LOWER(?))");
+        
+        // Prepare updates
+        $update_agency = $conn->prepare("UPDATE agency_items SET generic_name = ? WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?))");
+        $update_inv = $conn->prepare("UPDATE inventory SET generic_name = ? WHERE TRIM(LOWER(name)) = TRIM(LOWER(?))");
+        
+        // Prepare inserts
+        $insert_agency = $conn->prepare("
+            INSERT INTO agency_items 
+                (item_name, generic_name, batch_number, stock, mrp, category, brand_name)
+            VALUES (?, ?, ?, 0, 0.00, 'Tablet', ?)
+        ");
+        
+        $check_exact_placeholder = $conn->prepare("SELECT COUNT(*) FROM agency_items WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?)) AND item_name = '(Unmapped Brand)'");
+
+        foreach ($mappings as $map) {
+            $brand = trim($map['brand_name'] ?? '');
+            $generic = trim($map['generic_name'] ?? '');
+            
+            if ($brand === '' && $generic === '') {
+                $failed++;
+                continue;
+            }
+            
+            if ($brand !== '' && $generic === '') {
+                // Scenario A: Brand Medicine Only
+                // Check if brand exists in agency_items
+                $check_agency->execute([$brand]);
+                $agency_rows = $check_agency->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Check if brand exists in inventory
+                $check_inv->execute([$brand]);
+                $inv_rows = $check_inv->fetchAll(PDO::FETCH_ASSOC);
+                
+                $exists = (count($agency_rows) > 0 || count($inv_rows) > 0);
+                
+                if ($exists) {
+                    $duplicate++;
+                } else {
+                    $past_generic = get_mapped_generic_name($conn, $brand);
+                    $mapped_gen = ($past_generic !== '') ? $past_generic : null;
+                    
+                    $insert_agency->execute([$brand, $mapped_gen, 'IMPORT-BATCH', $brand]);
+                    $imported++;
+                }
+            }
+            elseif ($brand === '' && $generic !== '') {
+                // Scenario B: Generic Medicine Only
+                $check_exact_placeholder->execute([$generic]);
+                $placeholder_count = $check_exact_placeholder->fetchColumn();
+                
+                if ($placeholder_count > 0) {
+                    $duplicate++;
+                } else {
+                    $insert_agency->execute(['(Unmapped Brand)', $generic, 'placeholder-batch', '(Unmapped Brand)']);
+                    $imported++;
+                }
+            }
+            else {
+                // Scenario C: Both Generic & Brand
+                // Check if brand exists in agency_items
+                $check_agency->execute([$brand]);
+                $agency_rows = $check_agency->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Check if brand exists in inventory
+                $check_inv->execute([$brand]);
+                $inv_rows = $check_inv->fetchAll(PDO::FETCH_ASSOC);
+                
+                $exists = (count($agency_rows) > 0 || count($inv_rows) > 0);
+                
+                if ($exists) {
+                    // Check if it is a duplicate (already mapped to this generic name)
+                    $already_mapped = true;
+                    foreach ($agency_rows as $row) {
+                        if (trim($row['generic_name'] ?? '') !== $generic) {
+                            $already_mapped = false;
+                        }
+                    }
+                    foreach ($inv_rows as $row) {
+                        if (trim($row['generic_name'] ?? '') !== $generic) {
+                            $already_mapped = false;
+                        }
+                    }
+                    
+                    if ($already_mapped) {
+                        $duplicate++;
+                    } else {
+                        // Perform the update
+                        $update_agency->execute([$generic, $brand]);
+                        $update_inv->execute([$generic, $brand]);
+                        $imported++;
+                    }
+                } else {
+                    // Brand does not exist in database yet, so insert new brand with this generic name
+                    $insert_agency->execute([$brand, $generic, 'IMPORT-BATCH', $brand]);
+                    $imported++;
+                }
+            }
+        }
+        
+        // Audit trail
+        $conn->prepare("
+            INSERT INTO agency_audit_trail
+                (user_id, action, table_name, record_id, old_value, new_value, details)
+            VALUES (?, 'GENERIC_IMPORT', 'agency_items+inventory', 0, '', '', ?)
+        ")->execute([
+            $_SESSION['user_id'] ?? 0,
+            "Imported mappings (Scenario A,B,C): $imported imported/created, $duplicate duplicate/skipped."
+        ]);
+        
+        $conn->commit();
+        json_response([
+            'success' => true,
+            'imported' => $imported,
+            'duplicate' => $duplicate,
+            'message' => "Import complete: $imported imported/created, $duplicate already existed."
+        ]);
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) $conn->rollBack();
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
 }
 
 // 404 for API

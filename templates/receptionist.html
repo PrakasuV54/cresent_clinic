@@ -8,7 +8,7 @@
     <title>Receptionist — Crescent Clinic and Scans</title>
 
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=31">
 </head>
 
 <body>
@@ -103,8 +103,10 @@
                             </div>
                             <button class="btn btn-outline" onclick="fetchPatient()" id="btnFetch">Fetch</button>
                         </div>
-                        <div id="fetchResults" style="display:none; margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
-                            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Multiple patients found. Please select one:</p>
+                        <div id="fetchResults"
+                            style="display:none; margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Multiple patients
+                                found. Please select one:</p>
                             <div id="fetchResultsList" style="display:flex; flex-direction:column; gap:8px;"></div>
                         </div>
                     </div>
@@ -247,7 +249,7 @@
             window.scrollTo(0, 0);
         });
     </script>
-    <script src="{{ url_for('static', filename='js/script.js') }}?v=13"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=31"></script>
 </body>
 
 </html>

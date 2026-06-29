@@ -52,10 +52,6 @@ if ($uri === '/login') {
             } else {
                 if ($user['password'] === $password) {
                     $authenticated = true;
-                    $hash = password_hash($password, PASSWORD_BCRYPT);
-                    $upd = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
-                    $upd->execute([$hash, $user['id']]);
-                    $user['password'] = $hash;
                 }
             }
         }

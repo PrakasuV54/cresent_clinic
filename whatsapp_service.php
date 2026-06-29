@@ -10,9 +10,9 @@ function send_whatsapp_pdf($to, $pdf_content, $filename, $text = '') {
     
     // Create system_settings table if not exists (fail-safe)
     $conn->exec("CREATE TABLE IF NOT EXISTS system_settings (
-        setting_key TEXT PRIMARY KEY,
+        setting_key VARCHAR(255) PRIMARY KEY,
         setting_value TEXT
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Fetch settings
     $settings = [];

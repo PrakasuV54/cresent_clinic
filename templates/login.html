@@ -7,7 +7,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crescent Clinic and Scans — Login</title>
     <meta name="description" content="Crescent Clinic and Scans System — Premium Healthcare & Diagnostics.">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=25">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=31">
+    <style>
+        .mobile-menu-toggle {
+            display: none !important;
+        }
+
+        @media (max-width: 900px) {
+            .split-login-body {
+                overflow-y: auto !important;
+                height: auto !important;
+                min-height: 100vh !important;
+            }
+
+            .split-login-container {
+                height: auto !important;
+                min-height: 100vh !important;
+                overflow-y: visible !important;
+            }
+
+            .split-form-side {
+                min-height: 100vh !important;
+                justify-content: space-between !important;
+                padding: 30px 20px 20px 20px !important;
+            }
+        }
+    </style>
 </head>
 
 <body class="split-login-body">
@@ -53,12 +78,14 @@
             </div>
             <!-- Footer Link -->
             <div style="margin-top: auto; padding-top: 30px; text-align: center; padding-bottom: 10px;">
-                <a href="/portfolio" style="color: #64748b; text-decoration: none; font-size: 0.8rem; font-weight: 500; letter-spacing: 0.5px; transition: color 0.3s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#64748b'">@ nnp.com</a>
+                <a href="/portfolio"
+                    style="color: #64748b; text-decoration: none; font-size: 0.8rem; font-weight: 500; letter-spacing: 0.5px; transition: color 0.3s;"
+                    onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#64748b'">@ nnp.com</a>
             </div>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=31"></script>
 </body>
 
 </html>

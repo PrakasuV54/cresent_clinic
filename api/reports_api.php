@@ -303,6 +303,27 @@ if ($action === 'get_reports') {
         WHERE $date_filter_agency ORDER BY a.purchase_date DESC LIMIT 100");
     $response['agency_purchases'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Agency Suppliers List
+    $stmt = $conn->query("
+        SELECT s.*, 
+               COALESCE((SELECT SUM(grand_total) FROM agency_purchases WHERE supplier_id = s.id), 0) as total_purchase,
+               COALESCE((SELECT SUM(paid_amount) FROM agency_purchases WHERE supplier_id = s.id), 0) as paid_amount,
+               COALESCE((SELECT SUM(balance_amount) FROM agency_purchases WHERE supplier_id = s.id), 0) as pending_balance
+        FROM agency_suppliers s 
+        ORDER BY s.name ASC
+    ");
+    $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($suppliers as &$s) {
+        if ($s['total_purchase'] > 0 && $s['pending_balance'] <= 0) {
+            $s['payment_status'] = 'Paid';
+        } else if ($s['paid_amount'] > 0) {
+            $s['payment_status'] = 'Partially Paid';
+        } else {
+            $s['payment_status'] = 'Not Paid';
+        }
+    }
+    $response['agency_suppliers'] = $suppliers;
+
     // Inventory List
     $stmt = $conn->query("SELECT * FROM inventory ORDER BY name ASC");
     $response['inventory'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -436,9 +457,9 @@ if ($action === 'save_backup_settings') {
     
     // Create system_settings table if it doesn't exist
     $conn->exec("CREATE TABLE IF NOT EXISTS system_settings (
-        setting_key TEXT PRIMARY KEY,
+        setting_key VARCHAR(255) PRIMARY KEY,
         setting_value TEXT
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     
     $settings_to_save = [
         'whatsapp_backup_number' => trim($_POST['whatsapp_backup_number'] ?? ''),
@@ -450,7 +471,7 @@ if ($action === 'save_backup_settings') {
         'whatsapp_api_token' => trim($_POST['whatsapp_api_token'] ?? '')
     ];
     
-    $stmt_ins = $conn->prepare("INSERT OR REPLACE INTO system_settings (setting_key, setting_value) VALUES (?, ?)");
+    $stmt_ins = $conn->prepare("REPLACE INTO system_settings (setting_key, setting_value) VALUES (?, ?)");
     foreach ($settings_to_save as $key => $value) {
         $stmt_ins->execute([$key, $value]);
     }

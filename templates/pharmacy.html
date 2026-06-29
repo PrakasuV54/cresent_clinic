@@ -1,20 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <link rel="icon" type="image/png" href="/static/images/logo-transparent.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pharmacy — Crescent Clinic and Scans</title>
-    
-    
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
+
+
+    <link class="style-link" rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=31">
 </head>
+
 <body>
     <div class="dashboard">
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><line x1="12" y1="8" x2="12" y2="10"/><line x1="11" y1="9" x2="13" y2="9"/></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        <line x1="12" y1="8" x2="12" y2="10" />
+                        <line x1="11" y1="9" x2="13" y2="9" />
+                    </svg>
                 </div>
                 <div>
                     <h2>Crescent Clinic</h2>
@@ -23,12 +29,22 @@
             </div>
             <nav class="sidebar-nav">
                 <div id="dynamicPharmacyNav" style="display: contents;">
-                    <button class="nav-item active" onclick="showPharmacySection('Prescriptions', this)" id="navFilterAll">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    <button class="nav-item active" onclick="showPharmacySection('Prescriptions', this)"
+                        id="navFilterAll">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <line x1="12" y1="8" x2="12" y2="16" />
+                            <line x1="8" y1="12" x2="16" y2="12" />
+                        </svg>
                         All Patients
                     </button>
-                    <button class="nav-item" onclick="showPharmacySection('DirectSale', this)" style="color: var(--primary); font-weight: 600; margin-top: 8px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+                    <button class="nav-item" onclick="showPharmacySection('DirectSale', this)"
+                        style="color: var(--primary); font-weight: 600; margin-top: 8px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <path d="M16 10a4 4 0 01-8 0" />
+                        </svg>
                         Direct Medicine
                     </button>
                     <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
@@ -44,7 +60,11 @@
                     </div>
                 </div>
                 <a href="/logout" class="btn btn-outline btn-sm btn-full">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
                     Logout
                 </a>
             </div>
@@ -59,8 +79,14 @@
 
                 <div class="stats-row" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
                     <div class="stat-card">
-                        <div class="stat-icon green"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-                        <div><div class="stat-value" id="statRevenue">₹0.00</div><div class="stat-label">Total Revenue (Profit)</div></div>
+                        <div class="stat-icon green"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                            </svg></div>
+                        <div>
+                            <div class="stat-value" id="statRevenue">₹0.00</div>
+                            <div class="stat-label">Total Revenue (Profit)</div>
+                        </div>
                     </div>
                     <div id="dynamicPharmacyStats" style="display: contents;">
                         <!-- JS will inject dynamic doctor stat cards here -->
@@ -71,19 +97,37 @@
                     <div class="card-header">
                         <h2 id="tableTitle">Prescription List</h2>
                         <button class="btn btn-outline btn-sm" onclick="handleRefresh(this)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="23 4 23 10 17 10" />
+                                <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+                            </svg>
                             Refresh
                         </button>
                     </div>
                     <div class="card-body-np">
                         <table class="data-table" id="prescTable">
                             <thead>
-                                <tr><th>Token</th><th>Patient ID</th><th>Patient</th><th>Doctor</th><th>Time In</th><th>Time Out</th><th>Status</th><th>Actions</th></tr>
+                                <tr>
+                                    <th>Token</th>
+                                    <th>Patient ID</th>
+                                    <th>Patient</th>
+                                    <th>Doctor</th>
+                                    <th>Time In</th>
+                                    <th>Time Out</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
                             </thead>
                             <tbody id="prescBody"></tbody>
                         </table>
                         <div class="empty-state" id="emptyPresc" style="display:none;">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <line x1="12" y1="8" x2="12" y2="16" />
+                                <line x1="8" y1="12" x2="16" y2="12" />
+                            </svg>
                             <p>No prescriptions found</p>
                         </div>
                     </div>
@@ -98,12 +142,16 @@
                         <p>Walk-in customer sales (no consultation)</p>
                     </div>
                     <button class="btn btn-primary" onclick="openDirectPharmacy()">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 5v14M5 12h14" />
+                        </svg>
                         New Direct Sale
                     </button>
                 </div>
                 <div class="content-card">
-                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div class="card-header"
+                        style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                         <h2>Recent Direct Sales</h2>
                     </div>
                     <div class="card-body-np">
@@ -122,7 +170,11 @@
                             <tbody id="dsPBody"></tbody>
                         </table>
                         <div id="dsPEmpty" class="empty-state" style="display:none;">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1">
+                                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                                <line x1="3" y1="6" x2="21" y2="6" />
+                            </svg>
                             <p>No direct sales found</p>
                         </div>
                     </div>
@@ -144,7 +196,8 @@
                     <strong>Prescription:</strong> <span id="medModalPresc"></span>
                 </div>
                 <!-- Direct Pharmacy Fields -->
-                <div id="medModalDirectFields" style="display:none; margin-bottom:14px; background: var(--bg-secondary); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border);">
+                <div id="medModalDirectFields"
+                    style="display:none; margin-bottom:14px; background: var(--bg-secondary); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border);">
                     <div class="responsive-grid" style="margin-bottom: 0;">
                         <div class="form-group" style="margin-bottom: 0;">
                             <label>Customer Name *</label>
@@ -152,49 +205,70 @@
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
                             <label>Mobile Number</label>
-                            <input type="text" id="directPatPhone" placeholder="Enter phone" maxlength="15" oninput="if(typeof checkDirectCustomerPhone === 'function') checkDirectCustomerPhone(this.value);">
+                            <input type="text" id="directPatPhone" placeholder="Enter phone" maxlength="15"
+                                oninput="if(typeof checkDirectCustomerPhone === 'function') checkDirectCustomerPhone(this.value);">
                         </div>
                     </div>
                 </div>
 
                 <!-- Previous Balance Alert -->
-                <div id="prevBalanceContainer" style="display:none; background: #fff1f2; padding: 16px; border-radius: var(--radius); margin-bottom: 20px; border: 1px solid #fda4af;">
+                <div id="prevBalanceContainer"
+                    style="display:none; background: #fff1f2; padding: 16px; border-radius: var(--radius); margin-bottom: 20px; border: 1px solid #fda4af;">
                     <div style="display:flex; flex-direction:column; gap: 12px;">
-                        <div id="prevBalanceHeader" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div id="prevBalanceHeader"
+                            style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
-                                <div style="color: #be123c; font-weight: 700; font-size: 0.95rem;">Previous Pending Balance</div>
-                                <div id="prevBalanceAmount" style="color: #e11d48; font-size: 1.1rem; font-weight: 800;">₹0.00</div>
+                                <div style="color: #be123c; font-weight: 700; font-size: 0.95rem;">Previous Pending
+                                    Balance</div>
+                                <div id="prevBalanceAmount"
+                                    style="color: #e11d48; font-size: 1.1rem; font-weight: 800;">₹0.00</div>
                             </div>
                         </div>
-                        <div id="prevBalanceForm" style="display:flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                        <div id="prevBalanceForm"
+                            style="display:flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
                             <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
-                                <label for="clearPrevBalanceInput" style="font-size: 0.8rem; color: #be123c; font-weight: 600; margin-bottom: 4px; display: block;">Amount to Clear (₹)</label>
-                                <input type="number" id="clearPrevBalanceInput" placeholder="Enter amount to clear" style="border: 1px solid #fda4af; padding: 8px 12px; height: 38px; width: 100%; border-radius: var(--radius-sm); outline: none; background: #ffffff; color: var(--text-primary);">
+                                <label for="clearPrevBalanceInput"
+                                    style="font-size: 0.8rem; color: #be123c; font-weight: 600; margin-bottom: 4px; display: block;">Amount
+                                    to Clear (₹)</label>
+                                <input type="number" id="clearPrevBalanceInput" placeholder="Enter amount to clear"
+                                    style="border: 1px solid #fda4af; padding: 8px 12px; height: 38px; width: 100%; border-radius: var(--radius-sm); outline: none; background: #ffffff; color: var(--text-primary);">
                             </div>
                             <div class="form-group" style="margin: 0; min-width: 120px;">
-                                <label for="clearPrevBalanceMethod" style="font-size: 0.8rem; color: #be123c; font-weight: 600; margin-bottom: 4px; display: block;">Payment Method</label>
-                                <select id="clearPrevBalanceMethod" onchange="togglePrevBalanceUpi()" style="border: 1px solid #fda4af; padding: 8px 12px; height: 38px; width: 100%; border-radius: var(--radius-sm); outline: none; background: #ffffff; color: var(--text-primary); cursor: pointer;">
+                                <label for="clearPrevBalanceMethod"
+                                    style="font-size: 0.8rem; color: #be123c; font-weight: 600; margin-bottom: 4px; display: block;">Payment
+                                    Method</label>
+                                <select id="clearPrevBalanceMethod" onchange="togglePrevBalanceUpi()"
+                                    style="border: 1px solid #fda4af; padding: 8px 12px; height: 38px; width: 100%; border-radius: var(--radius-sm); outline: none; background: #ffffff; color: var(--text-primary); cursor: pointer;">
                                     <option value="Cash">Cash</option>
                                     <option value="UPI">UPI</option>
                                 </select>
                             </div>
-                            <div id="clearPrevBalanceUpiGroup" class="form-group" style="margin: 0; display: none; min-width: 180px;">
-                                <label for="clearPrevBalanceUpiAccount" style="font-size: 0.8rem; color: #be123c; font-weight: 600; margin-bottom: 4px; display: block;">Select UPI Account *</label>
-                                <select id="clearPrevBalanceUpiAccount" style="border: 1px solid #fda4af; padding: 8px 12px; height: 38px; width: 100%; border-radius: var(--radius-sm); outline: none; background: #ffffff; color: var(--text-primary); cursor: pointer;"></select>
+                            <div id="clearPrevBalanceUpiGroup" class="form-group"
+                                style="margin: 0; display: none; min-width: 180px;">
+                                <label for="clearPrevBalanceUpiAccount"
+                                    style="font-size: 0.8rem; color: #be123c; font-weight: 600; margin-bottom: 4px; display: block;">Select
+                                    UPI Account *</label>
+                                <select id="clearPrevBalanceUpiAccount"
+                                    style="border: 1px solid #fda4af; padding: 8px 12px; height: 38px; width: 100%; border-radius: var(--radius-sm); outline: none; background: #ffffff; color: var(--text-primary); cursor: pointer;"></select>
                             </div>
-                            <button class="btn btn-danger btn-sm" onclick="clearPrevBalance()" style="background:#e11d48; height: 38px; padding: 0 16px;">Clear Pending Fee</button>
+                            <button class="btn btn-danger btn-sm" onclick="clearPrevBalance()"
+                                style="background:#e11d48; height: 38px; padding: 0 16px;">Clear Pending Fee</button>
                         </div>
                         <!-- Success Feedback Section -->
-                        <div id="prevBalanceStatusSection" style="display:none; margin-top: 4px; padding-top: 12px; border-top: 1px dotted rgba(0,0,0,0.1);">
-                            <div id="prevBalanceStatusMsg" style="font-weight: 700; font-size: 0.95rem; margin-bottom: 2px;"></div>
+                        <div id="prevBalanceStatusSection"
+                            style="display:none; margin-top: 4px; padding-top: 12px; border-top: 1px dotted rgba(0,0,0,0.1);">
+                            <div id="prevBalanceStatusMsg"
+                                style="font-weight: 700; font-size: 0.95rem; margin-bottom: 2px;"></div>
                             <div id="prevBalanceRemainingMsg" style="font-size: 0.9rem; margin-bottom: 6px;"></div>
-                            <span id="prevBalanceStatusLabel" style="display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"></span>
+                            <span id="prevBalanceStatusLabel"
+                                style="display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"></span>
                         </div>
                     </div>
                 </div>
 
                 <div id="medicineRows"></div>
-                <button class="btn btn-outline btn-sm" onclick="addMedicineRow()" style="margin-top: 12px;">+ Add Item</button>
+                <button class="btn btn-outline btn-sm" onclick="addMedicineRow()" style="margin-top: 12px;">+ Add
+                    Item</button>
 
                 <hr style="border:none;border-top:1px solid var(--border);margin:24px 0;">
 
@@ -202,27 +276,48 @@
                     <div class="responsive-grid" style="margin-bottom: 24px;" id="feeScanContainer">
                         <div class="form-group">
                             <label for="medModalFee">Doctor Fee (₹)</label>
-                            <input type="number" id="medModalFee" value="0" oninput="updateGrandTotal()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
+                            <input type="number" id="medModalFee" value="0" oninput="updateGrandTotal()"
+                                onfocus="if(this.value==='0') this.value='';"
+                                onblur="if(this.value==='') this.value='0';">
                         </div>
-                        <div id="medModalScanContainer" style="display:none; grid-column: 1 / -1; background: linear-gradient(145deg, #ffffff, #f3f4f6); border: 1px solid #d1d5db; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-                            <div style="font-weight: 700; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+                        <div id="medModalScanContainer"
+                            style="display:none; grid-column: 1 / -1; background: linear-gradient(145deg, #ffffff, #f3f4f6); border: 1px solid #d1d5db; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                            <div
+                                style="font-weight: 700; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
                                 <div style="background: #e0e7ff; color: #4f46e5; padding: 6px; border-radius: 8px;">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                        <circle cx="8.5" cy="8.5" r="1.5" />
+                                        <polyline points="21 15 16 10 5 21" />
+                                    </svg>
                                 </div>
                                 Prescribed Scan Details
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: flex-start;">
+                            <div
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: flex-start;">
                                 <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="medModalScanType" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; display: block; font-weight: 600;">Scan Type</label>
-                                    <input type="text" id="medModalScanType" placeholder="E.g., Ultrasound" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 10px; font-weight: 500; color: #111827; background: #f9fafb; width: 100%; box-sizing: border-box;">
+                                    <label for="medModalScanType"
+                                        style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; display: block; font-weight: 600;">Scan
+                                        Type</label>
+                                    <input type="text" id="medModalScanType" placeholder="E.g., Ultrasound"
+                                        style="border: 1px solid #d1d5db; border-radius: 6px; padding: 10px; font-weight: 500; color: #111827; background: #f9fafb; width: 100%; box-sizing: border-box;">
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="medModalScan" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; display: block; font-weight: 600;">Scan Fee (₹)</label>
-                                    <input type="number" id="medModalScan" value="0" oninput="updateGrandTotal()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 10px; font-weight: bold; color: #059669; font-size: 1.1rem; width: 100%; box-sizing: border-box;">
+                                    <label for="medModalScan"
+                                        style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; display: block; font-weight: 600;">Scan
+                                        Fee (₹)</label>
+                                    <input type="number" id="medModalScan" value="0" oninput="updateGrandTotal()"
+                                        onfocus="if(this.value==='0') this.value='';"
+                                        onblur="if(this.value==='') this.value='0';"
+                                        style="border: 1px solid #d1d5db; border-radius: 6px; padding: 10px; font-weight: bold; color: #059669; font-size: 1.1rem; width: 100%; box-sizing: border-box;">
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0; grid-column: 1 / -1;">
-                                    <label for="medModalScanNotes" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; display: block; font-weight: 600;">Remarks / Instructions</label>
-                                    <input type="text" id="medModalScanNotes" placeholder="No specific remarks" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 10px; font-style: italic; color: #4b5563; width: 100%; box-sizing: border-box;">
+                                    <label for="medModalScanNotes"
+                                        style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 4px; display: block; font-weight: 600;">Remarks
+                                        / Instructions</label>
+                                    <input type="text" id="medModalScanNotes" placeholder="No specific remarks"
+                                        style="border: 1px solid #d1d5db; border-radius: 6px; padding: 10px; font-style: italic; color: #4b5563; width: 100%; box-sizing: border-box;">
                                 </div>
                             </div>
                         </div>
@@ -231,110 +326,168 @@
                     <!-- Additional Treatments Section -->
                     <div id="treatmentsSection" style="margin-bottom: 24px;">
                         <!-- Injection Group -->
-                        <div id="pharmacyInjectionGroup" style="margin-bottom: 16px; background: var(--bg-secondary); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border); position: relative;">
-                            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; margin-bottom: 12px; color: var(--accent);">
-                                <input type="checkbox" id="pharmacyCheckInjection" style="width: 18px; height: 18px; margin: 0;" onchange="document.getElementById('pharmacyInjectionInputs').style.display = this.checked ? 'block' : 'none'; updateGrandTotal(); if(this.checked && document.getElementById('pharmacyInjectionRows').children.length === 0) addPharmacyInjectionRow();">
+                        <div id="pharmacyInjectionGroup"
+                            style="margin-bottom: 16px; background: var(--bg-secondary); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border); position: relative;">
+                            <label
+                                style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; margin-bottom: 12px; color: var(--accent);">
+                                <input type="checkbox" id="pharmacyCheckInjection"
+                                    style="width: 18px; height: 18px; margin: 0;"
+                                    onchange="document.getElementById('pharmacyInjectionInputs').style.display = this.checked ? 'block' : 'none'; updateGrandTotal(); if(this.checked && document.getElementById('pharmacyInjectionRows').children.length === 0) addPharmacyInjectionRow();">
                                 Injection
                             </label>
                             <div id="pharmacyInjectionInputs" style="display: none;">
                                 <div id="pharmacyInjectionRows"></div>
-                                <button type="button" class="btn btn-outline btn-sm" onclick="addPharmacyInjectionRow()" style="margin-top: 8px;">+ Add Injection</button>
+                                <button type="button" class="btn btn-outline btn-sm" onclick="addPharmacyInjectionRow()"
+                                    style="margin-top: 8px;">+ Add Injection</button>
                             </div>
                         </div>
 
 
 
-                        <div id="pharmacyUPTGroup" style="margin-bottom: 16px; background: var(--bg-secondary); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border);">
-                            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; margin-bottom: 12px; color: var(--accent);">
-                                <input type="checkbox" id="pharmacyCheckUPT" style="width: 18px; height: 18px; margin: 0;" onchange="document.getElementById('pharmacyUPTInputs').style.display = this.checked ? 'block' : 'none'; updateGrandTotal();">
+                        <div id="pharmacyUPTGroup"
+                            style="margin-bottom: 16px; background: var(--bg-secondary); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border);">
+                            <label
+                                style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; margin-bottom: 12px; color: var(--accent);">
+                                <input type="checkbox" id="pharmacyCheckUPT"
+                                    style="width: 18px; height: 18px; margin: 0;"
+                                    onchange="document.getElementById('pharmacyUPTInputs').style.display = this.checked ? 'block' : 'none'; updateGrandTotal();">
                                 UPT Card
                             </label>
                             <div id="pharmacyUPTInputs" style="display: none;">
-                                <div id="pharmacyUPTStatus" style="font-size: 0.85rem; margin-bottom: 8px; color: var(--text-secondary);">Manual Control Available</div>
+                                <div id="pharmacyUPTStatus"
+                                    style="font-size: 0.85rem; margin-bottom: 8px; color: var(--text-secondary);">Manual
+                                    Control Available</div>
                                 <div class="form-group" style="margin: 0;">
                                     <label for="medModalUPTCost">UPT Card Cost (₹)</label>
-                                    <input type="number" id="medModalUPTCost" value="0" oninput="updateGrandTotal()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
+                                    <input type="number" id="medModalUPTCost" value="0" oninput="updateGrandTotal()"
+                                        onfocus="if(this.value==='0') this.value='';"
+                                        onblur="if(this.value==='') this.value='0';">
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div style="margin-bottom: 24px;">
-                        <label style="display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 12px;">Payment Mode</label>
+                        <label
+                            style="display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 12px;">Payment
+                            Mode</label>
                         <div style="display: flex; gap: 32px; margin-bottom: 16px;">
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" id="payCashCheck" onchange="togglePayInputs()" style="width: 18px; height: 18px;"> Cash
+                                <input type="checkbox" id="payCashCheck" onchange="togglePayInputs()"
+                                    style="width: 18px; height: 18px;"> Cash
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" id="payGPayCheck" onchange="togglePayInputs()" style="width: 18px; height: 18px;"> UPI
+                                <input type="checkbox" id="payGPayCheck" onchange="togglePayInputs()"
+                                    style="width: 18px; height: 18px;"> UPI
                             </label>
-                            
+
                         </div>
                         <div class="responsive-grid">
                             <div id="cashInputGroup" style="display: none;" class="form-group">
                                 <label style="font-size: 0.7rem;">Cash Amount (₹)</label>
-                                <input type="number" id="payCashAmount" value="0" oninput="updateGrandTotal()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
+                                <input type="number" id="payCashAmount" value="0" oninput="updateGrandTotal()"
+                                    onfocus="if(this.value==='0') this.value='';"
+                                    onblur="if(this.value==='') this.value='0';">
                             </div>
                             <div id="gpayInputGroup" style="display: none;" class="form-group">
                                 <label style="font-size: 0.7rem;">UPI Amount (₹)</label>
-                                <input type="number" id="payGPayAmount" value="0" oninput="updateGrandTotal()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
-                                <label style="font-size: 0.8rem; margin-top: 12px; display: block; color: var(--primary); font-weight: 600;">Select UPI Account *</label>
-                                <select id="payUpiAccount" class="form-control" style="font-size: 1rem; padding: 10px; height: auto; border: 2px solid var(--primary); border-radius: 6px; background-color: #f8fafc; cursor: pointer;"></select>
+                                <input type="number" id="payGPayAmount" value="0" oninput="updateGrandTotal()"
+                                    onfocus="if(this.value==='0') this.value='';"
+                                    onblur="if(this.value==='') this.value='0';">
+                                <label
+                                    style="font-size: 0.8rem; margin-top: 12px; display: block; color: var(--primary); font-weight: 600;">Select
+                                    UPI Account *</label>
+                                <select id="payUpiAccount" class="form-control"
+                                    style="font-size: 1rem; padding: 10px; height: auto; border: 2px solid var(--primary); border-radius: 6px; background-color: #f8fafc; cursor: pointer;"></select>
                             </div>
-                            
+
                         </div>
                         <div class="form-group" style="margin-top: 16px; display: none;">
                             <label style="font-size: 0.7rem;">Pending Amount (Manual Override)</label>
-                            <input type="number" id="manualPendingAmount" placeholder="Leave empty for auto calculation" oninput="updateGrandTotal()">
+                            <input type="number" id="manualPendingAmount" placeholder="Leave empty for auto calculation"
+                                oninput="updateGrandTotal()">
                         </div>
                     </div>
 
-                    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
-                        <div style="font-size: 0.9rem; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: var(--text-muted);">Doctor Fee:</span><span id="bdDocFee" style="color: var(--text-primary);">₹0.00</span></div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: var(--text-muted);">Medicine Total:</span><span id="bdMedTotal" style="color: var(--text-primary);">₹0.00</span></div>
-                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;" id="bdScanRow"><span style="color: var(--text-muted);">Scan Fee:</span><span id="bdScanFee" style="color: var(--text-primary);">₹0.00</span></div>
-                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;" id="bdInjRow"><span style="color: var(--text-muted);">Injection Fee:</span><span id="bdInjFee" style="color: var(--text-primary);">₹0.00</span></div>
-                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;" id="bdUptRow"><span style="color: var(--text-muted);">UPT Card Fee:</span><span id="bdUptFee" style="color: var(--text-primary);">₹0.00</span></div>
+                    <div
+                        style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+                        <div
+                            style="font-size: 0.9rem; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span
+                                    style="color: var(--text-muted);">Doctor Fee:</span><span id="bdDocFee"
+                                    style="color: var(--text-primary);">₹0.00</span></div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span
+                                    style="color: var(--text-muted);">Medicine Total:</span><span id="bdMedTotal"
+                                    style="color: var(--text-primary);">₹0.00</span></div>
+                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;"
+                                id="bdScanRow"><span style="color: var(--text-muted);">Scan Fee:</span><span
+                                    id="bdScanFee" style="color: var(--text-primary);">₹0.00</span></div>
+                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;"
+                                id="bdInjRow"><span style="color: var(--text-muted);">Injection Fee:</span><span
+                                    id="bdInjFee" style="color: var(--text-primary);">₹0.00</span></div>
+                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;"
+                                id="bdUptRow"><span style="color: var(--text-muted);">UPT Card Fee:</span><span
+                                    id="bdUptFee" style="color: var(--text-primary);">₹0.00</span></div>
                         </div>
-                        
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.95rem; font-weight: 600;">
+
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.95rem; font-weight: 600;">
                             <span style="color: var(--text-primary);">Subtotal:</span>
                             <span id="subTotal" style="color: var(--text-primary);">₹0.00</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center;">
-                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--accent); font-weight: 500; cursor: pointer;">
-                                <input type="checkbox" id="applyDiscountCheck" onchange="toggleDiscountInput()" style="width: 16px; height: 16px; margin: 0;"> Apply Discount
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center;">
+                            <label
+                                style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--accent); font-weight: 500; cursor: pointer;">
+                                <input type="checkbox" id="applyDiscountCheck" onchange="toggleDiscountInput()"
+                                    style="width: 16px; height: 16px; margin: 0;"> Apply Discount
                             </label>
                             <div id="discountInputGroup" style="display: none; align-items: center; gap: 6px;">
-                                <input type="number" id="discountPercent" placeholder="%" style="width: 60px; padding: 4px; text-align: center; height: 28px; font-size: 0.85rem;" oninput="updateGrandTotal()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
+                                <input type="number" id="discountPercent" placeholder="%"
+                                    style="width: 60px; padding: 4px; text-align: center; height: 28px; font-size: 0.85rem;"
+                                    oninput="updateGrandTotal()" onfocus="if(this.value==='0') this.value='';"
+                                    onblur="if(this.value==='') this.value='0';">
                                 <span style="font-size: 0.85rem; color: var(--text-muted);">%</span>
                             </div>
                         </div>
-                        <div style="display: none; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem;" id="bdDiscountRow">
-                            <span style="color: var(--danger);">Discount (<span id="bdDiscountPercent">0</span>%):</span>
+                        <div style="display: none; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem;"
+                            id="bdDiscountRow">
+                            <span style="color: var(--danger);">Discount (<span
+                                    id="bdDiscountPercent">0</span>%):</span>
                             <span id="bdDiscountAmount" style="color: var(--danger); font-weight: 600;">-₹0.00</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1rem; font-weight: bold; border-top: 1px dashed var(--border); padding-top: 10px;">
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1rem; font-weight: bold; border-top: 1px dashed var(--border); padding-top: 10px;">
                             <span style="color: var(--text-primary);">Grand Total:</span>
                             <span id="grandTotal" style="color: var(--primary);">₹0.00</span>
                         </div>
 
-                        <div style="font-size: 0.85rem; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px; padding-top: 10px;">
-                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;" id="bdCashRow"><span style="color: var(--text-muted);">Paid via Cash:</span><span id="bdCashPaid" style="color: var(--success);">₹0.00</span></div>
-                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;" id="bdGpayRow"><span style="color: var(--text-muted);">Paid via GPay:</span><span id="bdGpayPaid" style="color: var(--success);">₹0.00</span></div>
-                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;" id="bdPhonePeRow"><span style="color: var(--text-muted);">Paid via PhonePe:</span><span id="bdPhonePePaid" style="color: var(--success);">₹0.00</span></div>
-                            <div style="display: flex; justify-content: space-between; margin-top: 6px; font-weight: 500;">
+                        <div
+                            style="font-size: 0.85rem; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px; padding-top: 10px;">
+                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;"
+                                id="bdCashRow"><span style="color: var(--text-muted);">Paid via Cash:</span><span
+                                    id="bdCashPaid" style="color: var(--success);">₹0.00</span></div>
+                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;"
+                                id="bdGpayRow"><span style="color: var(--text-muted);">Paid via GPay:</span><span
+                                    id="bdGpayPaid" style="color: var(--success);">₹0.00</span></div>
+                            <div style="display: none; justify-content: space-between; margin-bottom: 6px;"
+                                id="bdPhonePeRow"><span style="color: var(--text-muted);">Paid via PhonePe:</span><span
+                                    id="bdPhonePePaid" style="color: var(--success);">₹0.00</span></div>
+                            <div
+                                style="display: flex; justify-content: space-between; margin-top: 6px; font-weight: 500;">
                                 <span style="color: var(--text-muted);">Total Paid:</span>
                                 <span id="paidTotal" style="color: var(--success);">₹0.00</span>
                             </div>
                         </div>
 
-                        <div style="display: flex; justify-content: space-between; padding-top: 5px; font-size: 1.1rem; font-family: var(--font-heading);">
+                        <div
+                            style="display: flex; justify-content: space-between; padding-top: 5px; font-size: 1.1rem; font-family: var(--font-heading);">
                             <span id="balanceLabel">Balance:</span>
                             <span id="balanceAmount" style="color: var(--danger);">₹0.00</span>
                         </div>
-                        <div id="paymentStatusMsg" style="margin-top: 12px; font-size: 0.75rem; text-align: right; color: var(--text-muted); font-style: italic;"></div>
+                        <div id="paymentStatusMsg"
+                            style="margin-top: 12px; font-size: 0.75rem; text-align: right; color: var(--text-muted); font-style: italic;">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -359,7 +512,11 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal('detailModal')">Close</button>
                 <button class="btn btn-primary" onclick="downloadPDF()" id="btnPDF">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
                     Download PDF
                 </button>
                 <button class="btn btn-success" onclick="sendWhatsAppImage()" id="btnWhatsApp">
@@ -385,39 +542,51 @@
                     <span>Pending Amount:</span>
                     <span id="ppAmountDue" style="font-weight:700; color:var(--danger); font-size:1.2rem;">₹0.00</span>
                 </div>
-                
-                <label style="display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 12px;">Payment Methods</label>
+
+                <label
+                    style="display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 12px;">Payment
+                    Methods</label>
                 <div style="display: flex; gap: 16px; margin-bottom: 16px; flex-wrap:wrap;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="ppCashCheck" onchange="togglePpInputs()" style="width: 18px; height: 18px;"> Cash
+                        <input type="checkbox" id="ppCashCheck" onchange="togglePpInputs()"
+                            style="width: 18px; height: 18px;"> Cash
                     </label>
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="ppGPayCheck" onchange="togglePpInputs()" style="width: 18px; height: 18px;"> UPI
+                        <input type="checkbox" id="ppGPayCheck" onchange="togglePpInputs()"
+                            style="width: 18px; height: 18px;"> UPI
                     </label>
-                    
+
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="ppBankCheck" onchange="togglePpInputs()" style="width: 18px; height: 18px;"> Bank Transfer
+                        <input type="checkbox" id="ppBankCheck" onchange="togglePpInputs()"
+                            style="width: 18px; height: 18px;"> Bank Transfer
                     </label>
                 </div>
                 <div class="responsive-grid">
                     <div id="ppCashGroup" style="display: none;" class="form-group">
                         <label style="font-size: 0.7rem;">Cash Amount (₹)</label>
-                        <input type="number" id="ppCashAmount" value="0" oninput="updatePpBalance()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
+                        <input type="number" id="ppCashAmount" value="0" oninput="updatePpBalance()"
+                            onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
                     </div>
                     <div id="ppGPayGroup" style="display: none;" class="form-group">
                         <label style="font-size: 0.7rem;">UPI Amount (₹)</label>
-                        <input type="number" id="ppGPayAmount" value="0" oninput="updatePpBalance()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
-                        <label style="font-size: 0.8rem; margin-top: 12px; display: block; color: var(--primary); font-weight: 600;">Select UPI Account *</label>
-                        <select id="ppUpiAccount" class="form-control" style="font-size: 1rem; padding: 10px; height: auto; border: 2px solid var(--primary); border-radius: 6px; background-color: #f8fafc; cursor: pointer;"></select>
+                        <input type="number" id="ppGPayAmount" value="0" oninput="updatePpBalance()"
+                            onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
+                        <label
+                            style="font-size: 0.8rem; margin-top: 12px; display: block; color: var(--primary); font-weight: 600;">Select
+                            UPI Account *</label>
+                        <select id="ppUpiAccount" class="form-control"
+                            style="font-size: 1rem; padding: 10px; height: auto; border: 2px solid var(--primary); border-radius: 6px; background-color: #f8fafc; cursor: pointer;"></select>
                     </div>
-                    
+
                     <div id="ppBankGroup" style="display: none;" class="form-group">
                         <label style="font-size: 0.7rem;">Bank Amount (₹)</label>
-                        <input type="number" id="ppBankAmount" value="0" oninput="updatePpBalance()" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
+                        <input type="number" id="ppBankAmount" value="0" oninput="updatePpBalance()"
+                            onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';">
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; padding-top: 15px; margin-top: 15px; border-top: 1px dashed var(--border); font-size: 1.1rem; font-family: var(--font-heading);">
+                <div
+                    style="display: flex; justify-content: space-between; padding-top: 15px; margin-top: 15px; border-top: 1px dashed var(--border); font-size: 1.1rem; font-family: var(--font-heading);">
                     <span>Remaining Balance:</span>
                     <span id="ppRemainingBalance" style="color: var(--danger);" data-due="0">₹0.00</span>
                 </div>
@@ -439,12 +608,14 @@
             <div class="modal-body">
                 <input type="hidden" id="rmSaleId">
                 <input type="hidden" id="rmSaleType">
-                <div style="background:var(--bg-secondary); padding:14px; border-radius:var(--radius); margin-bottom:16px;">
+                <div
+                    style="background:var(--bg-secondary); padding:14px; border-radius:var(--radius); margin-bottom:16px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
                         <span style="font-weight:600;" id="rmPatientName">-</span>
                         <span style="color:var(--text-muted); font-size:0.85rem;" id="rmBillNumber">-</span>
                     </div>
-                    <div style="font-size:0.85rem; color:var(--text-muted);">Select the items and quantities to return.</div>
+                    <div style="font-size:0.85rem; color:var(--text-muted);">Select the items and quantities to return.
+                    </div>
                 </div>
                 <div style="overflow-x:auto;">
                     <table class="data-table" id="rmTable">
@@ -464,24 +635,29 @@
                         </tbody>
                     </table>
                 </div>
-                
-                <div style="background: #fff1f2; border: 1px solid #fda4af; padding: 14px; border-radius: var(--radius); margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+
+                <div
+                    style="background: #fff1f2; border: 1px solid #fda4af; padding: 14px; border-radius: var(--radius); margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-weight: 600; color: #be123c;">Total Return Value:</span>
                         <span id="rmTotalReturnVal" style="font-weight: 700; color: #be123c;">₹0.00</span>
                     </div>
-                    <div id="rmPendingBalanceRow" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div id="rmPendingBalanceRow"
+                        style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 0.9rem; color: #b91c1c;">Outstanding Balance:</span>
                         <span id="rmOutstandingBalance" style="font-weight: 600; color: #b91c1c;">₹0.00</span>
                     </div>
-                    <div id="rmBalanceAdjustedRow" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div id="rmBalanceAdjustedRow"
+                        style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 0.9rem; color: #b91c1c;">Adjusted against Balance:</span>
                         <span id="rmBalanceAdjusted" style="font-weight: 600; color: #b91c1c;">₹0.00</span>
                     </div>
                     <hr style="border: none; border-top: 1px dashed #fda4af; margin: 4px 0;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 700; color: #9f1239; font-size: 1.05rem;">Net Refund Amount (Cash/UPI):</span>
-                        <span id="rmTotalRefund" style="font-size: 1.25rem; font-weight: bold; color: #e11d48;">₹0.00</span>
+                        <span style="font-weight: 700; color: #9f1239; font-size: 1.05rem;">Net Refund Amount
+                            (Cash/UPI):</span>
+                        <span id="rmTotalRefund"
+                            style="font-size: 1.25rem; font-weight: bold; color: #e11d48;">₹0.00</span>
                     </div>
                     <div class="form-group" style="margin-bottom: 0; margin-top: 8px;">
                         <label style="color: #be123c; font-weight: 600;">Refund Payment Mode</label>
@@ -507,6 +683,7 @@
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
-    <script src="{{ url_for('static', filename='js/script.js') }}?v=13"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=31"></script>
 </body>
+
 </html>

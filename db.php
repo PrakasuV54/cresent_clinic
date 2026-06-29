@@ -27,6 +27,8 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 function get_db()
 {
     static $conn = null;
+    static $migrated = false;
+
     if ($conn !== null) {
         return $conn;
     }
@@ -47,9 +49,49 @@ function get_db()
             init_db_schema($conn);
         }
 
+        // Always run column migrations once per process to keep existing DBs up-to-date
+        if (!$migrated) {
+            $migrated = true;
+            // Get all existing columns of the inventory table
+            $existing_cols = [];
+            try {
+                $q = $conn->query("SHOW COLUMNS FROM inventory");
+                if ($q) {
+                    while ($row = $q->fetch(PDO::FETCH_ASSOC)) {
+                        $existing_cols[] = strtolower($row['Field']);
+                    }
+                }
+            } catch (Exception $e) {
+                // Table might not exist yet or other error, fallback to exec with try-catch
+            }
+
+            $col_migrations = [
+                'generic_name' => "ALTER TABLE inventory ADD COLUMN generic_name VARCHAR(255) DEFAULT NULL",
+                'brand_name' => "ALTER TABLE inventory ADD COLUMN brand_name VARCHAR(255) DEFAULT NULL",
+                'agency_name' => "ALTER TABLE inventory ADD COLUMN agency_name VARCHAR(255) DEFAULT NULL",
+                'row_location' => "ALTER TABLE inventory ADD COLUMN row_location VARCHAR(100) DEFAULT NULL",
+                'col_location' => "ALTER TABLE inventory ADD COLUMN col_location VARCHAR(100) DEFAULT NULL",
+            ];
+
+            foreach ($col_migrations as $col_name => $sql) {
+                if (empty($existing_cols) || !in_array(strtolower($col_name), $existing_cols)) {
+                    try {
+                        $conn->exec($sql);
+                    } catch (Exception $e) {
+                        // Fallback/ignore if already exists or fails
+                    }
+                }
+            }
+        }
+
         return $conn;
     } catch (PDOException $e) {
-        die("DB Connection Error: " . $e->getMessage());
+        // Return JSON so the JS api() helper can parse the error instead of crashing
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+        }
+        die(json_encode(['error' => 'DB Connection Error: ' . $e->getMessage()]));
     }
 }
 
@@ -196,6 +238,9 @@ function init_db()
         id INT AUTO_INCREMENT PRIMARY KEY,
         item_code VARCHAR(255),
         name VARCHAR(255) NOT NULL,
+        generic_name VARCHAR(255),
+        brand_name VARCHAR(255),
+        agency_name VARCHAR(255),
         category VARCHAR(100) DEFAULT 'Tablet',
         hsn_code VARCHAR(100),
         batch_number VARCHAR(255) NOT NULL,
@@ -210,6 +255,8 @@ function init_db()
         location VARCHAR(255),
         tablets_per_strip INT DEFAULT 0,
         supplier_id INT,
+        row_location VARCHAR(100),
+        col_location VARCHAR(100),
         UNIQUE KEY uq_inventory_name_batch (name, batch_number)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
