@@ -4211,50 +4211,99 @@ if ($uri === '/api/generics/list' && $method === 'GET') {
     $q = trim($_GET['q'] ?? '');
     $conn = get_db();
     try {
+        // 1. Sync from agency_items to generic_mappings
+        $conn->exec("
+            INSERT INTO generic_mappings (brand_name, batch_number, generic_name, agency_name, stock, mrp, row_location, col_location, purchase_rate, selling_rate, category, pack_size)
+            SELECT 
+                ai.item_name, 
+                ai.batch_number, 
+                ai.generic_name, 
+                (SELECT name FROM agency_suppliers WHERE id = ai.supplier_id LIMIT 1),
+                ai.stock, 
+                ai.mrp, 
+                ai.row_location, 
+                ai.col_location,
+                ai.purchase_price,
+                ai.selling_price,
+                ai.category,
+                ai.unit
+            FROM agency_items ai
+            WHERE ai.generic_name IS NOT NULL AND TRIM(ai.generic_name) != ''
+            ON DUPLICATE KEY UPDATE
+                generic_name = VALUES(generic_name),
+                agency_name = VALUES(agency_name),
+                stock = VALUES(stock),
+                mrp = VALUES(mrp),
+                row_location = VALUES(row_location),
+                col_location = VALUES(col_location),
+                purchase_rate = VALUES(purchase_rate),
+                selling_rate = VALUES(selling_rate),
+                category = VALUES(category),
+                pack_size = VALUES(pack_size)
+        ");
+
+        // 2. Sync from inventory to generic_mappings
+        $conn->exec("
+            INSERT INTO generic_mappings (brand_name, batch_number, generic_name, agency_name, stock, mrp, row_location, col_location, purchase_rate, selling_rate, category, pack_size)
+            SELECT 
+                i.name, 
+                i.batch_number, 
+                i.generic_name, 
+                i.agency_name,
+                i.stock, 
+                i.mrp, 
+                i.row_location, 
+                i.col_location,
+                0.00,
+                0.00,
+                i.category,
+                i.tablets_per_strip
+            FROM inventory i
+            WHERE i.generic_name IS NOT NULL AND TRIM(i.generic_name) != ''
+            ON DUPLICATE KEY UPDATE
+                generic_name = VALUES(generic_name),
+                agency_name = VALUES(agency_name),
+                stock = VALUES(stock),
+                mrp = VALUES(mrp),
+                row_location = VALUES(row_location),
+                col_location = VALUES(col_location),
+                category = VALUES(category),
+                pack_size = VALUES(pack_size)
+        ");
+
+        // 3. Remove mappings from generic_mappings if they were cleared (set to NULL or empty) in the main tables
+        $conn->exec("
+            DELETE FROM generic_mappings 
+            WHERE (brand_name, batch_number) IN (
+                SELECT item_name, batch_number FROM agency_items WHERE generic_name IS NULL OR TRIM(generic_name) = ''
+            )
+        ");
+        $conn->exec("
+            DELETE FROM generic_mappings 
+            WHERE (brand_name, batch_number) IN (
+                SELECT name, batch_number FROM inventory WHERE generic_name IS NULL OR TRIM(generic_name) = ''
+            )
+        ");
+
+        // 4. Query from generic_mappings table
         $params = [];
-        $conds_agency = [];
-        $conds_inventory = [];
+        $where = "";
         if ($q !== '') {
-            $conds_agency[] = "(generic_name LIKE ? OR item_name LIKE ?)";
-            $params[] = "%$q%";
-            $params[] = "%$q%";
-            
-            $conds_inventory[] = "(generic_name LIKE ? OR name LIKE ?)";
+            $where = "WHERE generic_name LIKE ? OR brand_name LIKE ?";
             $params[] = "%$q%";
             $params[] = "%$q%";
         }
-        
-        $where_agency = !empty($conds_agency) ? "WHERE " . implode(" AND ", $conds_agency) : "";
-        $where_inventory = !empty($conds_inventory) ? "WHERE " . implode(" AND ", $conds_inventory) : "";
-        
+
         $sql = "
-            SELECT
-                MAX(generic_name) AS generic_name,
-                COUNT(CASE WHEN LOWER(brand_name) != '(unmapped brand)' THEN 1 END) AS brand_count
-            FROM (
-                SELECT 
-                    COALESCE(NULLIF(TRIM(generic_name), ''), '(Unmapped)') AS generic_name, 
-                    TRIM(item_name) AS brand_name, 
-                    TRIM(batch_number) AS batch_number
-                FROM agency_items
-                $where_agency
-                
-                UNION ALL
-                
-                SELECT 
-                    COALESCE(NULLIF(TRIM(generic_name), ''), '(Unmapped)') AS generic_name, 
-                    TRIM(name) AS brand_name, 
-                    TRIM(batch_number) AS batch_number
-                FROM inventory i
-                " . ($where_inventory !== '' ? $where_inventory . " AND " : "WHERE ") . " NOT EXISTS (
-                    SELECT 1 FROM agency_items ai 
-                    WHERE ai.item_name = i.name AND ai.batch_number = i.batch_number
-                )
-            ) AS combined
+            SELECT 
+                generic_name, 
+                COUNT(DISTINCT case when LOWER(brand_name) != '(unmapped brand)' then brand_name end) AS brand_count 
+            FROM generic_mappings
+            $where
             GROUP BY LOWER(TRIM(generic_name))
             ORDER BY generic_name ASC
         ";
-        
+
         $stmt = $conn->prepare($sql);
         $stmt->execute($params);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -4346,54 +4395,16 @@ if ($uri === '/api/generics/brands' && $method === 'GET') {
                     expiry_date,
                     mrp,
                     stock,
-                    supplier_name,
+                    agency_name AS supplier_name,
                     row_location,
                     col_location,
                     pack_size,
                     min_stock
-                FROM (
-                    SELECT
-                        ai.item_name AS brand_name,
-                        ai.generic_name,
-                        ai.category,
-                        ai.batch_number,
-                        ai.expiry_date,
-                        ai.mrp,
-                        ai.stock,
-                        s.name AS supplier_name,
-                        ai.row_location,
-                        ai.col_location,
-                        ai.unit AS pack_size,
-                        ai.min_stock
-                    FROM agency_items ai
-                    LEFT JOIN agency_suppliers s ON ai.supplier_id = s.id
-                    WHERE TRIM(LOWER(ai.generic_name)) = TRIM(LOWER(?))
-                    
-                    UNION ALL
-                    
-                    SELECT
-                        i.name AS brand_name,
-                        i.generic_name,
-                        i.category,
-                        i.batch_number,
-                        i.expiry_date,
-                        i.mrp,
-                        i.stock,
-                        i.agency_name AS supplier_name,
-                        i.row_location,
-                        i.col_location,
-                        i.tablets_per_strip AS pack_size,
-                        i.min_stock
-                    FROM inventory i
-                    WHERE TRIM(LOWER(i.generic_name)) = TRIM(LOWER(?))
-                      AND NOT EXISTS (
-                          SELECT 1 FROM agency_items ai 
-                          WHERE ai.item_name = i.name AND ai.batch_number = i.batch_number
-                      )
-                ) AS combined
+                FROM generic_mappings
+                WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))
                 ORDER BY brand_name ASC, batch_number ASC
             ");
-            $stmt->execute([$generic, $generic]);
+            $stmt->execute([$generic]);
         }
         $brands = $stmt->fetchAll(PDO::FETCH_ASSOC);
         json_response($brands);
@@ -4498,6 +4509,35 @@ if ($uri === '/api/generics/update-mapping' && $method === 'POST') {
         ]);
         $inv_rows = $stmt2->rowCount();
 
+        // Update generic_mappings
+        $stmt_gm = $conn->prepare("
+            INSERT INTO generic_mappings (
+                brand_name, batch_number, generic_name, agency_name, stock, mrp, 
+                row_location, col_location, category, pack_size, min_stock
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                brand_name = VALUES(brand_name),
+                batch_number = VALUES(batch_number),
+                generic_name = VALUES(generic_name),
+                agency_name = VALUES(agency_name),
+                stock = VALUES(stock),
+                mrp = VALUES(mrp),
+                row_location = VALUES(row_location),
+                col_location = VALUES(col_location),
+                category = VALUES(category),
+                pack_size = VALUES(pack_size),
+                min_stock = VALUES(min_stock)
+        ");
+        $stmt_gm->execute([
+            $brand_name, $batch_number, $generic_name, $supplier_name, $stock, $mrp,
+            $row_location, $col_location, $category, $pack_size, $min_stock
+        ]);
+        
+        // If rename occurred, delete old record
+        if (trim(strtolower($orig_brand)) !== trim(strtolower($brand_name)) || trim(strtolower($orig_batch)) !== trim(strtolower($batch_number))) {
+            $conn->prepare("DELETE FROM generic_mappings WHERE TRIM(LOWER(brand_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))")->execute([$orig_brand, $orig_batch]);
+        }
+
         // Audit trail
         $conn->prepare("
             INSERT INTO agency_audit_trail
@@ -4555,6 +4595,9 @@ if ($uri === '/api/generics/delete-generic' && $method === 'POST') {
         $stmt2->execute([$generic_name]);
         $inv_rows = $stmt2->rowCount();
 
+        // Update generic_mappings
+        $conn->prepare("DELETE FROM generic_mappings WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))")->execute([$generic_name]);
+
         // Audit trail
         $conn->prepare("
             INSERT INTO agency_audit_trail
@@ -4610,6 +4653,9 @@ if ($uri === '/api/generics/delete-brand-mapping' && $method === 'POST') {
         ");
         $stmt2->execute([$brand_name, $batch_number]);
         $inv_rows = $stmt2->rowCount();
+
+        // Update generic_mappings
+        $conn->prepare("DELETE FROM generic_mappings WHERE TRIM(LOWER(brand_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))")->execute([$brand_name, $batch_number]);
 
         // Audit log
         $conn->prepare("

@@ -82,6 +82,33 @@ function get_db()
                     }
                 }
             }
+
+            // Create generic_mappings table if not exists
+            try {
+                $conn->exec("
+                    CREATE TABLE IF NOT EXISTS generic_mappings (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        generic_name VARCHAR(255) NOT NULL,
+                        brand_name VARCHAR(255) NOT NULL,
+                        agency_name VARCHAR(255) DEFAULT NULL,
+                        item_id INT DEFAULT NULL,
+                        stock INT DEFAULT 0,
+                        batch_number VARCHAR(100) DEFAULT NULL,
+                        mrp DECIMAL(10, 2) DEFAULT 0.00,
+                        purchase_rate DECIMAL(10, 2) DEFAULT 0.00,
+                        selling_rate DECIMAL(10, 2) DEFAULT 0.00,
+                        row_location VARCHAR(100) DEFAULT NULL,
+                        col_location VARCHAR(100) DEFAULT NULL,
+                        category VARCHAR(100) DEFAULT NULL,
+                        pack_size VARCHAR(100) DEFAULT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY uniq_brand_batch (brand_name, batch_number)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ");
+            } catch (Exception $e) {
+                // Ignore if error
+            }
         }
 
         return $conn;
