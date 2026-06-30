@@ -2289,7 +2289,7 @@ async function loadAgencyAgenciesView() {
     list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">Loading...</div>';
     
     try {
-        const res = await api('/api/agency_suppliers');
+        const res = await api('/api/agency/suppliers');
         if (!res.length) {
             list.innerHTML = '<tr><td style="padding: 20px; text-align: center; color: var(--text-secondary);">No agencies found</td></tr>';
             return;
