@@ -3087,14 +3087,14 @@ if ($uri === '/api/agency/purchase/add' && $method === 'POST') {
             if (!$item_id) {
                 $check = $conn->prepare("SELECT id FROM agency_items WHERE item_name = ? AND batch_number = ?");
                 $batch_to_check = $item['batch_number'] ?? '';
-                $check->execute([$item['item_name'], $batch_to_check]);
+                $check->execute([$item['item_name'] ?? '', $batch_to_check]);
                 $exist = $check->fetch();
                 if ($exist) {
                     $item_id = $exist['id'];
                 } else {
                     $auto_cat = detect_medicine_category($item['item_name'] ?? '');
                     $ins = $conn->prepare("INSERT INTO agency_items (item_name, batch_number, expiry_date, purchase_price, selling_price, mrp, stock, category, supplier_id, generic_name, brand_name) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
-                    $ins->execute([$item['item_name'] ?? '', $item['batch_number']??'', $item['expiry_date']??'', (float)($item['purchase_rate']??0), (float)($item['selling_price']??0), (float)($item['mrp']??0), 0, $auto_cat, $supplier_id, $item_generic, $item['brand_name']??$item['item_name']]);
+                    $ins->execute([$item['item_name'] ?? '', $item['batch_number']??'', $item['expiry_date']??'', (float)($item['purchase_rate']??0), (float)($item['selling_price']??0), (float)($item['mrp']??0), 0, $auto_cat, $supplier_id, $item_generic, $item['brand_name'] ?? $item['item_name'] ?? '']);
                     $item_id = $conn->lastInsertId();
                 }
             }
@@ -3102,7 +3102,7 @@ if ($uri === '/api/agency/purchase/add' && $method === 'POST') {
             // Always auto-detect and update category, generic_name, and brand_name for this item
             $auto_cat = detect_medicine_category($item['item_name'] ?? '');
             $updCat = $conn->prepare("UPDATE agency_items SET category = ?, generic_name = ?, brand_name = ? WHERE id = ?");
-            $updCat->execute([$auto_cat, $item_generic, $item['brand_name']??$item['item_name'], $item_id]);
+            $updCat->execute([$auto_cat, $item_generic, $item['brand_name'] ?? $item['item_name'] ?? '', $item_id]);
             
             if (!empty($auto_cat)) {
                 // Auto-save detected category to categories list

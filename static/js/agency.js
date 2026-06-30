@@ -677,12 +677,13 @@ function openAgencyPurcModal() {
     openModal('agPurcModal');
 }
 
+
 function isRowEmpty(tr) {
-    const qtyInput = tr.querySelector('.purc-qty');
-    const rateInput = tr.querySelector('.purc-rate');
-    const qtyVal = qtyInput ? qtyInput.value.trim() : '';
-    const rateVal = rateInput ? rateInput.value.trim() : '';
-    return qtyVal === '' && rateVal === '';
+    const nameVal = tr.querySelector('.purc-name') ? tr.querySelector('.purc-name').value.trim() : '';
+    const batchVal = tr.querySelector('.purc-batch') ? tr.querySelector('.purc-batch').value.trim() : '';
+    const qtyVal = tr.querySelector('.purc-qty') ? tr.querySelector('.purc-qty').value.trim() : '';
+    const rateVal = tr.querySelector('.purc-rate') ? tr.querySelector('.purc-rate').value.trim() : '';
+    return nameVal === '' && batchVal === '' && qtyVal === '' && rateVal === '';
 }
 
 function addAgPurcRow(item = {}, skipCalc = true) {
@@ -691,19 +692,19 @@ function addAgPurcRow(item = {}, skipCalc = true) {
 
     tr.innerHTML = `
         <td><input type="text" class="form-control purc-hsn" style="min-width:150px; box-sizing:border-box;" value="${item.hsn_code ?? ''}"></td>
-        <td><input type="text" class="form-control purc-name" required style="min-width:350px; box-sizing:border-box;" value="${item.item_name ?? ''}"></td>
+        <td><input type="text" class="form-control purc-name" style="min-width:350px; box-sizing:border-box;" value="${item.item_name ?? ''}"></td>
         <td>
             <div style="position:relative;">
                 <input type="text" class="form-control purc-generic" style="min-width:250px; box-sizing:border-box;" placeholder="Generic Medicine Name" value="${item.generic_name ?? ''}" autocomplete="off" oninput="searchGenericNames(this)">
             </div>
         </td>
-        <td><input type="text" class="form-control purc-batch" required style="min-width:120px; box-sizing:border-box;" value="${item.batch_number ?? ''}"></td>
+        <td><input type="text" class="form-control purc-batch" style="min-width:120px; box-sizing:border-box;" value="${item.batch_number ?? ''}"></td>
         <td><input type="text" class="form-control purc-mfg" style="min-width:100px; box-sizing:border-box;" placeholder="MM/YY" value="${item.mfg_date ?? ''}"></td>
         <td><input type="text" class="form-control purc-exp" style="min-width:100px; box-sizing:border-box;" placeholder="MM/YY" value="${item.expiry_date ?? ''}"></td>
         <td><input type="text" class="form-control purc-unit" style="min-width:80px; box-sizing:border-box;" value="${item.unit ?? ''}"></td>
-        <td><input type="number" class="form-control purc-qty" required style="min-width:100px; box-sizing:border-box;" value="${item.quantity ?? ''}"></td>
+        <td><input type="number" class="form-control purc-qty" style="min-width:100px; box-sizing:border-box;" value="${item.quantity ?? ''}"></td>
         <td><input type="number" class="form-control purc-free" style="min-width:80px; box-sizing:border-box;" value="${item.free_qty ?? ''}"></td>
-        <td><input type="number" step="0.01" class="form-control purc-rate" required style="min-width:120px; box-sizing:border-box;" value="${item.purchase_rate ?? ''}"></td>
+        <td><input type="number" step="0.01" class="form-control purc-rate" style="min-width:120px; box-sizing:border-box;" value="${item.purchase_rate ?? ''}"></td>
         <td><input type="number" step="0.01" class="form-control purc-mrp" style="min-width:120px; box-sizing:border-box;" value="${item.mrp ?? ''}"></td>
         <td><input type="number" step="0.01" class="form-control purc-sell" style="min-width:120px; box-sizing:border-box;" value="${item.selling_price ?? ''}"></td>
         <td><input type="number" step="0.01" class="form-control purc-disc" style="min-width:100px; box-sizing:border-box;" value="${item.discount_percentage ?? ''}"></td>
@@ -734,7 +735,6 @@ function calcGlobalTotals() {}
 
 async function saveAgencyPurc() {
     const items = [];
-    let hasError = false;
 
     document.querySelectorAll('#agPurcItemsBody tr').forEach((tr, index) => {
         if (isRowEmpty(tr)) {
@@ -744,39 +744,31 @@ async function saveAgencyPurc() {
         let qty = parseInt(tr.querySelector('.purc-qty').value) || 0;
         let rate = parseFloat(tr.querySelector('.purc-rate').value) || 0;
 
-        if (!name) { toast(`Row ${index + 1}: Item Name is required`, 'error'); hasError = true; }
-        if (qty <= 0) { toast(`Row ${index + 1}: Quantity must be greater than 0`, 'error'); hasError = true; }
-        if (rate < 0) { toast(`Row ${index + 1}: Purchase rate cannot be negative`, 'error'); hasError = true; }
-
-        if (!hasError) {
-            items.push({
-                hsn_code: tr.querySelector('.purc-hsn') ? tr.querySelector('.purc-hsn').value : '',
-                item_name: name,
-                generic_name: tr.querySelector('.purc-generic') ? tr.querySelector('.purc-generic').value.trim() : '',
-                brand_name: name,
-                batch_number: tr.querySelector('.purc-batch').value,
-                mfg_date: tr.querySelector('.purc-mfg') ? tr.querySelector('.purc-mfg').value : '',
-                expiry_date: tr.querySelector('.purc-exp') ? tr.querySelector('.purc-exp').value : '',
-                unit: tr.querySelector('.purc-unit') ? tr.querySelector('.purc-unit').value : '',
-                quantity: qty,
-                free_qty: tr.querySelector('.purc-free') ? parseInt(tr.querySelector('.purc-free').value) || 0 : 0,
-                purchase_rate: rate,
-                mrp: tr.querySelector('.purc-mrp') ? parseFloat(tr.querySelector('.purc-mrp').value) || 0 : 0,
-                selling_price: tr.querySelector('.purc-sell') ? parseFloat(tr.querySelector('.purc-sell').value) || 0 : 0,
-                discount_percentage: tr.querySelector('.purc-disc') ? parseFloat(tr.querySelector('.purc-disc').value) || 0 : 0,
-                discount: (rate * qty) * (tr.querySelector('.purc-disc') ? (parseFloat(tr.querySelector('.purc-disc').value) || 0) / 100 : 0),
-                taxable_amount: tr.querySelector('.purc-taxable') ? parseFloat(tr.querySelector('.purc-taxable').value) || 0 : 0,
-                gst_percentage: tr.querySelector('.purc-gst') ? parseFloat(tr.querySelector('.purc-gst').value) || 0 : 0,
-                tax_amount: (tr.querySelector('.purc-cgst') ? parseFloat(tr.querySelector('.purc-cgst').value) || 0 : 0) + (tr.querySelector('.purc-sgst') ? parseFloat(tr.querySelector('.purc-sgst').value) || 0 : 0),
-                gst: tr.querySelector('.purc-gst') ? parseFloat(tr.querySelector('.purc-gst').value) || 0 : 0, // Using same value for backwards compatibility
-                cgst: tr.querySelector('.purc-cgst') ? parseFloat(tr.querySelector('.purc-cgst').value) || 0 : 0,
-                sgst: tr.querySelector('.purc-sgst') ? parseFloat(tr.querySelector('.purc-sgst').value) || 0 : 0,
-                total_amount: parseFloat(tr.querySelector('.purc-total').value) || 0
-            });
-        }
+        items.push({
+            hsn_code: tr.querySelector('.purc-hsn') ? tr.querySelector('.purc-hsn').value : '',
+            item_name: name,
+            generic_name: tr.querySelector('.purc-generic') ? tr.querySelector('.purc-generic').value.trim() : '',
+            brand_name: name,
+            batch_number: tr.querySelector('.purc-batch').value,
+            mfg_date: tr.querySelector('.purc-mfg') ? tr.querySelector('.purc-mfg').value : '',
+            expiry_date: tr.querySelector('.purc-exp') ? tr.querySelector('.purc-exp').value : '',
+            unit: tr.querySelector('.purc-unit') ? tr.querySelector('.purc-unit').value : '',
+            quantity: qty,
+            free_qty: tr.querySelector('.purc-free') ? parseInt(tr.querySelector('.purc-free').value) || 0 : 0,
+            purchase_rate: rate,
+            mrp: tr.querySelector('.purc-mrp') ? parseFloat(tr.querySelector('.purc-mrp').value) || 0 : 0,
+            selling_price: tr.querySelector('.purc-sell') ? parseFloat(tr.querySelector('.purc-sell').value) || 0 : 0,
+            discount_percentage: tr.querySelector('.purc-disc') ? parseFloat(tr.querySelector('.purc-disc').value) || 0 : 0,
+            discount: (rate * qty) * (tr.querySelector('.purc-disc') ? (parseFloat(tr.querySelector('.purc-disc').value) || 0) / 100 : 0),
+            taxable_amount: tr.querySelector('.purc-taxable') ? parseFloat(tr.querySelector('.purc-taxable').value) || 0 : 0,
+            gst_percentage: tr.querySelector('.purc-gst') ? parseFloat(tr.querySelector('.purc-gst').value) || 0 : 0,
+            tax_amount: (tr.querySelector('.purc-cgst') ? parseFloat(tr.querySelector('.purc-cgst').value) || 0 : 0) + (tr.querySelector('.purc-sgst') ? parseFloat(tr.querySelector('.purc-sgst').value) || 0 : 0),
+            gst: tr.querySelector('.purc-gst') ? parseFloat(tr.querySelector('.purc-gst').value) || 0 : 0, // Using same value for backwards compatibility
+            cgst: tr.querySelector('.purc-cgst') ? parseFloat(tr.querySelector('.purc-cgst').value) || 0 : 0,
+            sgst: tr.querySelector('.purc-sgst') ? parseFloat(tr.querySelector('.purc-sgst').value) || 0 : 0,
+            total_amount: parseFloat(tr.querySelector('.purc-total').value) || 0
+        });
     });
-
-    if (hasError) return;
 
     if (items.length === 0) {
         toast('Please add at least one item', 'error');
@@ -786,15 +778,12 @@ async function saveAgencyPurc() {
     let invNo = document.getElementById('agPurcInv').value.trim();
     let suppName = document.getElementById('agPurcSuppName') ? document.getElementById('agPurcSuppName').value.trim() : '';
 
-    if (!invNo) { toast('Invoice Number is required', 'error'); return; }
-    if (!suppName) { toast('Supplier Name is required', 'error'); return; }
-
     const payload = {
         id: document.getElementById('agPurcId') ? document.getElementById('agPurcId').value : '',
         image_path: document.getElementById('agPurcImage') ? document.getElementById('agPurcImage').value : '',
         supplier_id: document.getElementById('agPurcSupp') ? document.getElementById('agPurcSupp').value : '',
-        supplier_name: document.getElementById('agPurcSuppName') ? document.getElementById('agPurcSuppName').value : '',
-        invoice_number: document.getElementById('agPurcInv').value,
+        supplier_name: suppName,
+        invoice_number: invNo,
         purchase_date: document.getElementById('agPurcDate').value,
         payment_mode: document.getElementById('agPurcPayment') ? document.getElementById('agPurcPayment').value : 'Cash',
         credit_days: document.getElementById('agPurcCreditDays') ? parseInt(document.getElementById('agPurcCreditDays').value) || 0 : 0,
