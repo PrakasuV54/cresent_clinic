@@ -4997,6 +4997,8 @@ if ($uri === '/api/generics/import' && $method === 'POST') {
         
         $check_exact_placeholder = $conn->prepare("SELECT COUNT(*) FROM agency_items WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?)) AND item_name = '(Unmapped Brand)'");
 
+        $session_unmapped_generics = [];
+
         foreach ($mappings as $map) {
             $brand = trim($map['brand_name'] ?? '');
             $generic = trim($map['generic_name'] ?? '');
@@ -5040,16 +5042,22 @@ if ($uri === '/api/generics/import' && $method === 'POST') {
                 }
             }
             elseif ($brand === '' && $generic !== '') {
+                if (in_array($generic_lower, $session_unmapped_generics)) {
+                    $duplicate++;
+                    continue;
+                }
+                
                 $check_exact_placeholder->execute([$generic]);
                 $placeholder_count = $check_exact_placeholder->fetchColumn();
                 
                 if ($placeholder_count > 0) {
                     $duplicate++;
+                    $session_unmapped_generics[] = $generic_lower;
                 } else {
-                    $placeholder_batch = 'placeholder-' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $generic));
-                    $placeholder_batch = substr($placeholder_batch, 0, 100);
+                    $placeholder_batch = 'ph_' . uniqid() . '_' . substr(md5($generic), 0, 8);
                     $insert_agency->execute(['(Unmapped Brand)', $generic, $placeholder_batch, '(Unmapped Brand)']);
                     $imported++;
+                    $session_unmapped_generics[] = $generic_lower;
                 }
             }
             else {

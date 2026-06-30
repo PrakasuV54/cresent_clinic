@@ -2137,8 +2137,26 @@ window.handleGenericImportExcel = function(input) {
             let genericColIdx = 0;
             if (json.length > 0) {
                 const headers = json[0].map(h => String(h || '').toLowerCase().trim());
-                const gIdx = headers.findIndex(h => h.includes('generic') || h.includes('formula') || h.includes('medicine') || h.includes('name'));
-                if (gIdx !== -1) genericColIdx = gIdx;
+                let gIdx = headers.findIndex(h => h === 'generic name' || h === 'generic medicine' || h === 'medicine name' || h === 'item name' || h === 'generic');
+                if (gIdx === -1) {
+                    gIdx = headers.findIndex(h => 
+                        (h.includes('generic') || h.includes('formula') || h.includes('medicine') || h.includes('name')) && 
+                        !h.includes('brand') && !h.includes('company') && !h.includes('supplier') && !h.includes('first') && !h.includes('last')
+                    );
+                }
+                
+                if (gIdx !== -1) {
+                    genericColIdx = gIdx;
+                } else if (headers.length > 1 && json.length > 1) {
+                    // Fallback: guess by looking at the first data row
+                    for(let c = 0; c < json[1].length; c++) {
+                        const val = String(json[1][c] || '').trim();
+                        if (val && isNaN(Number(val)) && val.length > 2 && val.toLowerCase() !== 's.no' && val.toLowerCase() !== 'sno') {
+                            genericColIdx = c;
+                            break;
+                        }
+                    }
+                }
             }
             
             const mappings = [];
