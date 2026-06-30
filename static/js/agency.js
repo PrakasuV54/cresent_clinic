@@ -2216,6 +2216,18 @@ window.handleGenericImportPdf = function(input) {
     input.value = '';
 };
 
+// Fallback for cached HTML imports
+window.handleGenericImport = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const extension = file.name.split('.').pop().toLowerCase();
+    if (extension === 'pdf') {
+        window.handleGenericImportPdf(input);
+    } else {
+        window.handleGenericImportExcel(input);
+    }
+};
+
 // Send mappings to backend
 async function submitImportedMappings(mappings) {
     try {
