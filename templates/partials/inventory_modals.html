@@ -1,0 +1,141 @@
+    <div class="modal-overlay" id="invModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="invModalTitle">Add/Edit Medicine Batch</h3>
+                <button class="modal-close" onclick="closeModal('invModal')">X</button>
+            </div>
+            <div class="modal-body">
+                <form id="invForm" onsubmit="event.preventDefault(); saveInventory();"><input type="hidden" id="invId">
+                    <div class="responsive-grid">
+                        <div class="form-group" style="position:relative;">
+                            <label>Medicine Name *</label>
+                            <input type="text" id="invName" required autocomplete="off"
+                                oninput="suggestInvMedicine(this)">
+                            <div id="invSuggestions"
+                                style="display:none; position:absolute; top:100%; left:0; width:100%; background:var(--bg-card); border:1px solid var(--border); z-index:1000; border-radius:var(--radius); max-height:200px; overflow-y:auto; box-shadow:var(--shadow-lg);">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select id="invCat" class="form-control" onchange="toggleInventoryFields()">
+                                <option value="TAB">TAB</option>
+                                <option value="CAP">CAP</option>
+                                <option value="SYP">SYP</option>
+                                <option value="INJ">INJ</option>
+                                <option value="CRM">CRM</option>
+                                <option value="GEL">GEL</option>
+                                <option value="DROP">DROP</option>
+                                <option value="POW">POW</option>
+                                <option value="LOT">LOT</option>
+                                <option value="SPRAY">SPRAY</option>
+                                <option value="OINT">OINT</option>
+                                <option value="Surgical">Surgical</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <input type="text" id="invCatOther" class="form-control mt-2"
+                                placeholder="Type custom category name..." style="display:none;">
+                        </div>
+                    </div>
+                    <div class="responsive-grid" style="margin-bottom:0;">
+                        <div class="form-group">
+                            <label>🏢 Agency Name</label>
+                            <input type="text" id="invAgencyName" placeholder="e.g. SHANMUGA AGENCY" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="responsive-grid" style="margin-top:8px;">
+                        <div class="form-group">
+                            <label>💊 Generic Medicine Name</label>
+                            <div style="position:relative;">
+                                <input type="text" id="invGenericName" placeholder="e.g. Montelukast, Paracetamol" autocomplete="off" oninput="searchGenericNames(this)">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>🏷️ Brand Name</label>
+                            <input type="text" id="invBrandName" placeholder="e.g. Montek, Calpol" autocomplete="off">
+                        </div>
+                    </div>
+                    <div id="invGroupCodes" class="responsive-grid">
+                        <div class="form-group"><label>Item Code / Barcode</label><input type="text" id="invCode"></div>
+                        <div class="form-group"><label>HSN Code</label><input type="text" id="invHsn"></div>
+                    </div>
+                    <hr id="invDivider" style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
+                    <div id="invGroupBatch" class="responsive-grid-3">
+                        <div class="form-group"><label id="labelBatch">Batch Number</label><input type="text"
+                                id="invBatch"></div>
+                        <div class="form-group"><label>Mfg Date (MM-YY)</label><input type="text" id="invMfg"
+                                placeholder="MM-YY" pattern="(0[1-9]|1[0-2])[-/]\d{2,4}" title="Format: MM-YY or MM/YY"></div>
+                        <div class="form-group"><label>Exp Date (MM-YY)</label><input type="text" id="invExpiry"
+                                placeholder="MM-YY" pattern="(0[1-9]|1[0-2])[-/]\d{2,4}" title="Format: MM-YY or MM/YY"></div>
+                    </div>
+                    <div id="invGroupPricing" class="responsive-grid-3">
+                        <div class="form-group"><label>Purchase Price (₹)</label><input type="number" step="0.01"
+                                id="invPurchase" value="0" oninput="calcTabletPricePreview()"
+                                onfocus="if(this.value==='0') this.value='';"
+                                onblur="if(this.value==='') this.value='0';"></div>
+                        <div class="form-group"><label>Selling Price (₹)</label><input type="number" step="0.01"
+                                id="invSell" value="0" oninput="calcTabletPricePreview()"
+                                onfocus="if(this.value==='0') this.value='';"
+                                onblur="if(this.value==='') this.value='0';"></div>
+                        <div class="form-group"><label>MRP (₹)</label><input type="number" step="0.01" id="invMrp"
+                                value="0" oninput="calcTabletPricePreview()"
+                                onfocus="if(this.value==='0') this.value='';"
+                                onblur="if(this.value==='') this.value='0';"></div>
+                    </div>
+                    <div id="invPricePreviewGroup"
+                        style="display:none; background: var(--bg-hover); padding: 12px; border-radius: var(--radius); margin-bottom: 15px; font-size: 0.9em; border: 1px dashed var(--border);">
+                        <strong style="color: var(--text-primary);">Calculated Per Tablet:</strong><br>
+                        Purchase Price: ₹<span id="prevPurch">0.00</span><br>
+                        Selling Price: ₹<span id="prevSell">0.00</span><br>
+                        MRP: ₹<span id="prevMrp">0.00</span>
+                    </div>
+                    <div id="invGroupStock" class="responsive-grid">
+                        <div class="form-group" id="groupTabletsPerStrip" style="display:none;">
+                            <label>Tablets Per Strip</label>
+                            <input type="number" id="invTabletsPerStrip" value=""
+                                oninput="calcTotalTablets(); calcTabletPricePreview();">
+                        </div>
+                        <div class="form-group">
+                            <label id="labelStock">Current Stock</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="number" id="invStock" value="0" required oninput="calcTotalTablets()"
+                                    onfocus="if(this.value==='0') this.value='';"
+                                    onblur="if(this.value==='') this.value='0';">
+                                <span id="labelStockUnit"
+                                    style="display:none; color: var(--text-muted); font-weight: 500;">Strips</span>
+                            </div>
+                        </div>
+                        <div class="form-group" id="groupTotalTablets" style="display:none;">
+                            <label>Total Tablets</label>
+                            <input type="number" id="invTotalTablets" value="0" readonly
+                                style="background-color: var(--bg-hover); border-color: var(--border); font-weight: bold;">
+                        </div>
+                        <div class="form-group">
+                            <label>Low Stock Alert</label>
+                            <input type="number" id="invMinStock" value="0"
+                                onfocus="if(this.value==='0') this.value='';"
+                                onblur="if(this.value==='') this.value='0';">
+                        </div>
+                    </div>
+                    <div class="responsive-grid" style="margin-top: 8px;">
+                        <div class="form-group">
+                            <label>🗂️ Row Location</label>
+                            <input type="text" id="invRow" placeholder="e.g. A, B, 1, 2" maxlength="50"
+                                style="text-transform:uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label>📦 Column Location</label>
+                            <input type="text" id="invCol" placeholder="e.g. 1, 5, B" maxlength="50"
+                                style="text-transform:uppercase;">
+                        </div>
+                    </div>
+                    <button type="submit" id="hiddenInvBtn" style="display:none;"></button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('invModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="document.getElementById('hiddenInvBtn').click()">Save
+                    Batch</button>
+            </div>
+        </div>
+    </div>
+

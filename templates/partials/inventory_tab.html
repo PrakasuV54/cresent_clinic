@@ -1,0 +1,41 @@
+            <div class="section" id="sectionInventory">
+                <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h1>Inventory Management</h1>
+                        <p>Manage items, batches, stock and pricing.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openMedModal()">+ Add New Medicine / Batch</button>
+                </div>
+
+                <div class="content-card">
+                    <div class="card-header">
+                        <input type="text" id="invSearch" placeholder="🔍 Search by name, code or batch..."
+                            class="search-box" style="width: 300px;" oninput="loadInventory()">
+                        <label
+                            style="display:inline-flex; align-items:center; gap:8px; font-size:0.9rem; margin-left:16px;">
+                            <input type="checkbox" id="invShowEmpty" onchange="loadInventory()"> Show Empty Stock
+                        </label>
+                    </div>
+                    <div class="card-body-np" style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Item Code</th>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Batch</th>
+                                    <th>Mfg Date</th>
+                                    <th>Expiry</th>
+                                    <th>MRP</th>
+                                    <th>Purchase (₹)</th>
+                                    <th>Selling (₹)</th>
+                                    <th>Stock</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+

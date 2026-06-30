@@ -41,6 +41,12 @@ class TemplateParser {
             return isset($data[$key]) ? htmlspecialchars($data[$key]) : '';
         }, $content);
 
+        // 5. Handle {% include 'filename' %}
+        $content = preg_replace_callback('/\{% include \'(.*?)\' %\}/', function($matches) use ($data) {
+            $includePath = __DIR__ . '/templates/' . trim($matches[1]);
+            return self::render($includePath, $data);
+        }, $content);
+
         return $content;
     }
 }
