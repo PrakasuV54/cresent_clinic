@@ -3294,37 +3294,7 @@ if (!String.prototype.toFixed) {
 
 
 
-// ==========================================
-// GLOBAL DATE FORMATTER FOR MFG/EXP DATES
-// ==========================================
-document.addEventListener('input', function (e) {
-    const isDateField = e.target.matches('.purc-mfg, .purc-exp, #agItemMfg, #agItemExp, #invMfgDate, #invExpiry, .mfg-date, .exp-date, [id$="MfgDate"], [id$="Expiry"]');
-
-    if (isDateField && e.target.type !== 'date') {
-        let val = e.target.value.replace(/\D/g, '');
-
-        if (val.length >= 2) {
-            let month = parseInt(val.substring(0, 2), 10);
-            if (month < 1 && val.length >= 2) val = '01' + val.substring(2);
-            if (month > 12) val = '12' + val.substring(2);
-
-            if (val.length > 2) {
-                val = val.substring(0, 2) + '/' + val.substring(2, 4);
-            } else if (e.target.value.length === 3 && e.target.value.includes('/')) {
-                val = val.substring(0, 2) + '/';
-            } else {
-                val = val.substring(0, 2) + (val.length === 2 ? '/' : '');
-            }
-        }
-
-        if (e.target.value !== val) {
-            e.target.value = val;
-        }
-        if (!e.target.hasAttribute('maxlength')) {
-            e.target.setAttribute('maxlength', '5');
-        }
-    }
-});
+// Global Date Formatter removed to allow free manual typing/editing of slashes and hyphens.
 
 window.renderReturnTimeline = function (container, returns, currentGrandTotal = 0, currentPaid = 0) {
     // Group by date and time
