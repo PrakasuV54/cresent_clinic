@@ -2666,13 +2666,13 @@ if (preg_match('/^\/api\/management\/patient\/delete\/(\d+)$/', $uri, $matches))
 if ($uri === '/api/agency/dashboard' && $method === 'GET') {
     enforce_api_auth(['pharmacist']);
     $conn = get_db();
-    $total_items = $conn->query("SELECT COUNT(*) FROM agency_items")->fetchColumn();
-    $total_qty = $conn->query("SELECT SUM(stock) FROM agency_items")->fetchColumn() ?: 0;
+    $total_items = $conn->query("SELECT COUNT(*) FROM agency_items WHERE item_name != '(Unmapped Brand)'")->fetchColumn();
+    $total_qty = $conn->query("SELECT SUM(stock) FROM agency_items WHERE item_name != '(Unmapped Brand)'")->fetchColumn() ?: 0;
     
     // Total Stock Value = sum(stock * purchase_price)
-    $total_value = $conn->query("SELECT SUM(stock * purchase_price) FROM agency_items")->fetchColumn() ?: 0;
-    $low_stock = $conn->query("SELECT COUNT(*) FROM agency_items WHERE stock > 0 AND stock <= min_stock")->fetchColumn();
-    $out_of_stock = $conn->query("SELECT COUNT(*) FROM agency_items WHERE stock <= 0")->fetchColumn();
+    $total_value = $conn->query("SELECT SUM(stock * purchase_price) FROM agency_items WHERE item_name != '(Unmapped Brand)'")->fetchColumn() ?: 0;
+    $low_stock = $conn->query("SELECT COUNT(*) FROM agency_items WHERE stock > 0 AND stock <= min_stock AND item_name != '(Unmapped Brand)'")->fetchColumn();
+    $out_of_stock = $conn->query("SELECT COUNT(*) FROM agency_items WHERE stock <= 0 AND item_name != '(Unmapped Brand)'")->fetchColumn();
     
     // Recent purchases (last 5)
     $stmt = $conn->query("SELECT p.*, s.name as supplier_name FROM agency_purchases p LEFT JOIN agency_suppliers s ON p.supplier_id = s.id ORDER BY p.created_at DESC LIMIT 5");
@@ -2793,7 +2793,7 @@ if (preg_match('/^\/api\/agency\/suppliers\/delete\/(\d+)$/', $uri, $matches) &&
 if ($uri === '/api/agency/items' && $method === 'GET') {
     enforce_api_auth(['pharmacist']);
     $conn = get_db();
-    $stmt = $conn->query("SELECT a.*, s.name as agency_name FROM agency_items a LEFT JOIN agency_suppliers s ON a.supplier_id = s.id ORDER BY a.item_name ASC");
+    $stmt = $conn->query("SELECT a.*, s.name as agency_name FROM agency_items a LEFT JOIN agency_suppliers s ON a.supplier_id = s.id WHERE a.item_name != '(Unmapped Brand)' ORDER BY a.item_name ASC");
     json_response($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
