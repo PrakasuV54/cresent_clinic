@@ -374,7 +374,7 @@ async function openAgencyItemModal() {
     if (agencyCategoriesData.length === 0) agencyCategoriesData = await api('/api/agency/categories');
     const catSelect = document.getElementById('agItemCat');
 
-    const standardCategories = ['TAB', 'CAP', 'SYP', 'INJ', 'CRM', 'GEL', 'DROP', 'POW', 'LOT', 'SPRAY', 'OINT', 'Surgical', 'Other'];
+    const standardCategories = ['TAB', 'CAP', 'SYP', 'INJ', 'CRM', 'GEL', 'DROP', 'POW', 'LOT', 'SPRAY', 'OINT', 'Surgical', 'Other', 'Tablet'];
     let options = '<option value="">Select...</option>';
     standardCategories.forEach(cat => {
         options += `<option value="${cat}">${cat}</option>`;
