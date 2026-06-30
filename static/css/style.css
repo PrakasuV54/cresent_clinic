@@ -2221,6 +2221,7 @@ input[type=number] {
     justify-content: center !important;
     color: rgba(255, 255, 255, 0.9) !important;
     border-color: rgba(255, 255, 255, 0.2) !important;
+    background: transparent !important;
   }
 
   .main-content {
