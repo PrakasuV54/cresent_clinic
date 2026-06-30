@@ -4339,16 +4339,14 @@ function sync_generic_mappings($conn) {
 
     // 3. Remove mappings from generic_mappings if they were cleared (set to NULL or empty) in the main tables
     $conn->exec("
-        DELETE FROM generic_mappings 
-        WHERE (brand_name, batch_number) IN (
-            SELECT item_name, batch_number FROM agency_items WHERE generic_name IS NULL OR TRIM(generic_name) = ''
-        )
+        DELETE gm FROM generic_mappings gm
+        INNER JOIN agency_items ai ON gm.brand_name = ai.item_name AND gm.batch_number = ai.batch_number
+        WHERE ai.generic_name IS NULL OR TRIM(ai.generic_name) = ''
     ");
     $conn->exec("
-        DELETE FROM generic_mappings 
-        WHERE (brand_name, batch_number) IN (
-            SELECT name, batch_number FROM inventory WHERE generic_name IS NULL OR TRIM(generic_name) = ''
-        )
+        DELETE gm FROM generic_mappings gm
+        INNER JOIN inventory i ON gm.brand_name = i.name AND gm.batch_number = i.batch_number
+        WHERE i.generic_name IS NULL OR TRIM(i.generic_name) = ''
     ");
 }
 
@@ -4376,12 +4374,12 @@ if ($uri === '/api/generics/list' && $method === 'GET') {
 
         $sql = "
             SELECT 
-                generic_name, 
+                TRIM(generic_name) AS generic_name, 
                 COUNT(DISTINCT case when LOWER(brand_name) != '(unmapped brand)' then brand_name end) AS brand_count 
             FROM generic_mappings
             $where
-            GROUP BY LOWER(TRIM(generic_name))
-            ORDER BY generic_name ASC
+            GROUP BY TRIM(generic_name)
+            ORDER BY TRIM(generic_name) ASC
         ";
 
         $stmt = $conn->prepare($sql);
