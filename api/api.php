@@ -5124,7 +5124,7 @@ if ($uri === '/api/generics/import' && $method === 'POST') {
     }
 }
 
-if ($path === '/api/agency_medicine_list' && $method === 'GET') {
+if ($uri === '/api/agency_medicine_list' && $method === 'GET') {
     enforce_api_auth();
     $supplier_id = $_GET['supplier_id'] ?? 0;
     try {
