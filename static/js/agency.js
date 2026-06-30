@@ -2307,6 +2307,8 @@ async function loadAgencyAgenciesView() {
         
         // Clear right pane
         document.getElementById('agencyViewTitle').textContent = 'Select an Agency';
+        const actionsDiv = document.getElementById('agencyViewActions');
+        if (actionsDiv) actionsDiv.innerHTML = '';
         document.getElementById('agencyViewMedicinesList').innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">Select an agency from the left to view medicines</td></tr>';
         
     } catch (e) {
@@ -2327,6 +2329,11 @@ async function loadAgencyMedicines(agencyId, agencyName, btn) {
     }
     
     document.getElementById('agencyViewTitle').textContent = `Medicines from ${agencyName}`;
+    const actionsDiv = document.getElementById('agencyViewActions');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = `<button class="btn btn-danger btn-sm" onclick="deleteAgencyFromView(${agencyId}, '${agencyName.replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i> Delete</button>`;
+    }
+    
     const tbody = document.getElementById('agencyViewMedicinesList');
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">Loading medicines...</td></tr>';
     
@@ -2357,5 +2364,17 @@ async function loadAgencyMedicines(agencyId, agencyName, btn) {
     } catch (e) {
         if (e.message) toast(e.message, 'error'); else toast('Failed to load medicines', 'error');
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger);">Failed to load medicines</td></tr>';
+    }
+}
+
+async function deleteAgencyFromView(id, name) {
+    if (!confirm('Are you sure you want to delete the agency "' + name + '"?')) return;
+    try {
+        const res = await api('/api/agency/suppliers/delete/' + id, { method: 'DELETE' });
+        if (!res.success) throw new Error(res.error || 'Failed to delete agency');
+        toast('Agency deleted successfully!');
+        loadAgencyAgenciesView();
+    } catch (e) {
+        if (e.message) toast(e.message, 'error'); else toast('Failed to delete agency', 'error');
     }
 }

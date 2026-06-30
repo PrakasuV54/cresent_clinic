@@ -5130,16 +5130,12 @@ if ($uri === '/api/agency_medicine_list' && $method === 'GET') {
     try {
         $conn = get_db();
         $stmt = $conn->prepare("
-            SELECT id, name, category, batch_number, expiry_date, mrp, stock
-            FROM inventory 
-            WHERE supplier_id = ? 
-            UNION
             SELECT id, item_name as name, category, batch_number, expiry_date, mrp, stock
             FROM agency_items
             WHERE supplier_id = ?
             ORDER BY name ASC
         ");
-        $stmt->execute([$supplier_id, $supplier_id]);
+        $stmt->execute([$supplier_id]);
         $medicines = $stmt->fetchAll(PDO::FETCH_ASSOC);
         json_response(['success' => true, 'medicines' => $medicines]);
     } catch (Exception $e) {
