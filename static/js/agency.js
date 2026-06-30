@@ -20,6 +20,7 @@ function switchAgencyTab(tab, btn) {
     if (tab === 'stock') loadAgencyItemsForSelect();
     if (tab === 'reports') loadAgencyReports();
     if (tab === 'generics') loadGenericMedicines();
+    if (tab === 'agencies-view') loadAgencyAgenciesView();
 }
 
 async function loadAgencyDashboard() {
@@ -2279,6 +2280,76 @@ async function submitImportedMappings(mappings) {
         });
     }
 }
+// ═══════════════════════════════════════════
+// AGENCY MEDICINES VIEW
+// ═══════════════════════════════════════════
 
+async function loadAgencyAgenciesView() {
+    const list = document.getElementById('agencyViewList');
+    list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">Loading...</div>';
+    
+    try {
+        const res = await api('/api/agency_suppliers');
+        if (!res.length) {
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No agencies found</div>';
+            return;
+        }
+        
+        let html = '';
+        res.forEach(agency => {
+            html += `
+                <button class="nav-item" onclick="loadAgencyMedicines(${agency.id}, '${agency.name.replace(/'/g, "\\'")}', this)" style="width: 100%; text-align: left; margin-bottom: 5px; justify-content: flex-start; padding: 10px 15px;">
+                    🏢 ${agency.name}
+                </button>
+            `;
+        });
+        list.innerHTML = html;
+        
+        // Clear right pane
+        document.getElementById('agencyViewTitle').textContent = 'Select an Agency';
+        document.getElementById('agencyViewMedicinesList').innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">Select an agency from the left to view medicines</td></tr>';
+        
+    } catch (e) {
+        if (e.message) toast(e.message, 'error'); else toast('Failed to load agencies', 'error');
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--danger);">Failed to load agencies</div>';
+    }
+}
 
-
+async function loadAgencyMedicines(agencyId, agencyName, btn) {
+    // Update active state
+    document.querySelectorAll('#agencyViewList .nav-item').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    
+    document.getElementById('agencyViewTitle').textContent = `Medicines from ${agencyName}`;
+    const tbody = document.getElementById('agencyViewMedicinesList');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">Loading medicines...</td></tr>';
+    
+    try {
+        const res = await api(`/api/agency_medicine_list?supplier_id=${agencyId}`);
+        if (!res.success) throw new Error(res.error || 'Failed to load medicines');
+        
+        const meds = res.medicines || [];
+        if (!meds.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-secondary);">No medicines found for this agency</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        meds.forEach(m => {
+            html += `
+                <tr>
+                    <td><strong>${m.name}</strong></td>
+                    <td>${m.category || '-'}</td>
+                    <td>${m.batch_number || '-'}</td>
+                    <td>${m.stock}</td>
+                    <td>₹${parseFloat(m.mrp || 0).toFixed(2)}</td>
+                    <td>${m.expiry_date || '-'}</td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    } catch (e) {
+        if (e.message) toast(e.message, 'error'); else toast('Failed to load medicines', 'error');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger);">Failed to load medicines</td></tr>';
+    }
+}

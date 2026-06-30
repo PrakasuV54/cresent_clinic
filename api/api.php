@@ -5124,5 +5124,24 @@ if ($uri === '/api/generics/import' && $method === 'POST') {
     }
 }
 
+if ($path === '/api/agency_medicine_list' && $method === 'GET') {
+    enforce_api_auth();
+    $supplier_id = $_GET['supplier_id'] ?? 0;
+    try {
+        $conn = get_db();
+        $stmt = $conn->prepare("
+            SELECT id, item_code, name, category, batch_number, expiry_date, mrp, stock, min_stock, location, mfg_date, tablets_per_strip, purchase_price, selling_price
+            FROM inventory 
+            WHERE supplier_id = ? 
+            ORDER BY name ASC
+        ");
+        $stmt->execute([$supplier_id]);
+        $medicines = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        json_response(['success' => true, 'medicines' => $medicines]);
+    } catch (Exception $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
 // 404 for API
 json_response(['error' => 'API Endpoint not found'], 404);
