@@ -2291,16 +2291,16 @@ async function loadAgencyAgenciesView() {
     try {
         const res = await api('/api/agency_suppliers');
         if (!res.length) {
-            list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No agencies found</div>';
+            list.innerHTML = '<tr><td style="padding: 20px; text-align: center; color: var(--text-secondary);">No agencies found</td></tr>';
             return;
         }
         
         let html = '';
         res.forEach(agency => {
             html += `
-                <button class="nav-item" onclick="loadAgencyMedicines(${agency.id}, '${agency.name.replace(/'/g, "\\'")}', this)" style="width: 100%; text-align: left; margin-bottom: 5px; justify-content: flex-start; padding: 10px 15px;">
-                    🏢 ${agency.name}
-                </button>
+                <tr style="cursor:pointer;" class="nav-item-tr" onclick="loadAgencyMedicines(${agency.id}, '${agency.name.replace(/'/g, "\\'")}', this)">
+                    <td style="padding: 15px;">🏢 ${agency.name}</td>
+                </tr>
             `;
         });
         list.innerHTML = html;
@@ -2311,14 +2311,20 @@ async function loadAgencyAgenciesView() {
         
     } catch (e) {
         if (e.message) toast(e.message, 'error'); else toast('Failed to load agencies', 'error');
-        list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--danger);">Failed to load agencies</div>';
+        list.innerHTML = '<tr><td style="padding: 20px; text-align: center; color: var(--danger);">Failed to load agencies</td></tr>';
     }
 }
 
 async function loadAgencyMedicines(agencyId, agencyName, btn) {
     // Update active state
-    document.querySelectorAll('#agencyViewList .nav-item').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    document.querySelectorAll('#agencyViewList .nav-item-tr').forEach(b => {
+        b.style.background = '';
+        b.style.fontWeight = 'normal';
+    });
+    if (btn) {
+        btn.style.background = 'var(--bg-hover)';
+        btn.style.fontWeight = '600';
+    }
     
     document.getElementById('agencyViewTitle').textContent = `Medicines from ${agencyName}`;
     const tbody = document.getElementById('agencyViewMedicinesList');
