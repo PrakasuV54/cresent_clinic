@@ -109,7 +109,8 @@ function get_mapped_generic_name($conn, $brand_name) {
 
 // Bidirectional synchronization between agency_items and inventory tables
 function sync_stock_item($conn, $item_name, $batch_number, $source) {
-    if (empty($item_name) || empty($batch_number)) {
+    $batch_number = $batch_number ?? '';
+    if (empty($item_name)) {
         return;
     }
     
