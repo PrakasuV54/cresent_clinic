@@ -5001,6 +5001,17 @@ if ($uri === '/api/generics/import' && $method === 'POST') {
             $brand = trim($map['brand_name'] ?? '');
             $generic = trim($map['generic_name'] ?? '');
             
+            $generic_lower = strtolower($generic);
+            $ignored_names = [
+                's.no', 'sno', 's.no.', 'generic name', 'generic_name', 'generic', 'brand', 'medicine', 
+                'name', 'sl.no', 'sl.no.', 'slno', 'serial number', 'sr.no.', 'sr.no', 'srno', 'generic medicine name',
+                'item code', 'item_code', 'hsn', 'hsn code', 'batch', 'batch number', 'mfg', 'mfg date', 
+                'expiry', 'expiry date', 'mrp', 'rate', 'price', 'stock', 'qty', 'quantity'
+            ];
+            if ($generic !== '' && (in_array($generic_lower, $ignored_names) || strlen($generic) <= 2 || is_numeric($generic))) {
+                continue;
+            }
+
             if ($brand === '' && $generic === '') {
                 $failed++;
                 continue;
