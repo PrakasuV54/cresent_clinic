@@ -34,7 +34,7 @@ function get_db()
     }
 
     try {
-        $host = getenv('DB_HOST') ?: 'localhost';
+        $host = getenv('DB_HOST') ?: '127.0.0.1';
         $dbname = getenv('DB_NAME') ?: 'u526658771_crescent';
         $username = getenv('DB_USER') ?: 'u526658771_nnp';
         $password = getenv('DB_PASSWORD') ?: 'Namaraja@4';
