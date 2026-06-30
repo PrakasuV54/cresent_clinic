@@ -2037,7 +2037,7 @@ window.gmOpenEditModal = function(encodedBrand) {
     const item = {
         id: brand.inventory_id || '',
         name: brand.brand_name || '',
-        category: brand.category || 'Tablet',
+        category: brand.category || 'TAB',
         item_code: brand.item_code || '',
         hsn_code: brand.hsn_code || '',
         batch_number: brand.batch_number || '',
@@ -2095,7 +2095,7 @@ window.gmSaveGenericName = async function() {
 window.gmOpenAddBrandModal = function() {
     document.getElementById('invId').value = '';
     document.getElementById('invName').value = '';
-    document.getElementById('invCat').value = 'Tablet';
+    document.getElementById('invCat').value = 'TAB';
     document.getElementById('invAgencyName').value = '';
     document.getElementById('invGenericName').value = gmSelectedGeneric;
     document.getElementById('invBrandName').value = '';

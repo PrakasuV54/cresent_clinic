@@ -1350,7 +1350,7 @@ if ($uri === '/api/inventory/add' && $method === 'POST') {
     $mfg_date = $input['mfg_date'] ?? '';
     $expiry_date = $input['expiry_date'] ?? '';
     $item_code = $input['item_code'] ?? '';
-    $category = $input['category'] ?? 'Tablet';
+    $category = $input['category'] ?? 'TAB';
     $hsn_code = $input['hsn_code'] ?? '';
     $tablets_per_strip = (int)($input['tablets_per_strip'] ?? 0);
     $min_stock = (int)($input['min_stock'] ?? 0);
@@ -1420,7 +1420,7 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
     $mfg_date = $input['mfg_date'] ?? '';
     $expiry_date = $input['expiry_date'] ?? '';
     $item_code = $input['item_code'] ?? '';
-    $category = $input['category'] ?? 'Tablet';
+    $category = $input['category'] ?? 'TAB';
     $hsn_code = $input['hsn_code'] ?? '';
     $tablets_per_strip = (int)($input['tablets_per_strip'] ?? 0);
     $min_stock = (int)($input['min_stock'] ?? 0);
@@ -4519,7 +4519,7 @@ if ($uri === '/api/generics/update-mapping' && $method === 'POST') {
     
     $brand_name  = trim($input['brand_name'] ?? '');
     $generic_name = trim($input['generic_name'] ?? '');
-    $category = trim($input['category'] ?? 'Tablet');
+    $category = trim($input['category'] ?? 'TAB');
     $batch_number = trim($input['batch_number'] ?? '');
     $expiry_date = trim($input['expiry_date'] ?? '');
     $mrp = (float)($input['mrp'] ?? 0);
@@ -4991,7 +4991,7 @@ if ($uri === '/api/generics/import' && $method === 'POST') {
         $insert_agency = $conn->prepare("
             INSERT INTO agency_items 
                 (item_name, generic_name, batch_number, stock, mrp, category, brand_name)
-            VALUES (?, ?, ?, 0, 0.00, 'Tablet', ?)
+            VALUES (?, ?, ?, 0, 0.00, 'TAB', ?)
         ");
         
         $check_exact_placeholder = $conn->prepare("SELECT COUNT(*) FROM agency_items WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?)) AND item_name = '(Unmapped Brand)'");
