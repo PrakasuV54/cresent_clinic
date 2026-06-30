@@ -4491,6 +4491,7 @@ if ($uri === '/api/generics/brands' && $method === 'GET') {
                 FROM generic_mappings gm
                 LEFT JOIN inventory i ON TRIM(LOWER(i.name)) = TRIM(LOWER(gm.brand_name)) AND TRIM(LOWER(i.batch_number)) = TRIM(LOWER(gm.batch_number))
                 WHERE TRIM(LOWER(gm.generic_name)) = TRIM(LOWER(?))
+                  AND LOWER(gm.brand_name) != '(unmapped brand)'
                 ORDER BY gm.brand_name ASC, gm.batch_number ASC
             ");
             $stmt->execute([$generic]);
