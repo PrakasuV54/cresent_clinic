@@ -2013,8 +2013,7 @@ async function gmViewBrands(genericName) {
                     <td>${statusBadge}</td>
                     <td>
                         <button class="btn btn-outline btn-sm" onclick="gmOpenEditModal('${brandJsonEsc}')">Edit Details</button>
-                        <button class="btn btn-outline btn-sm" style="color:var(--danger); margin-left:6px;" onclick="gmDeleteBrandMapping('${brand.brand_name.replace(/'/g, "\\'")}', '${brand.batch_number.replace(/'/g, "\\'")}')">Delete Batch</button>
-                        <button class="btn btn-outline btn-sm" style="color:var(--danger); margin-left:6px;" onclick="gmDeleteBrandAllMappings('${brand.brand_name.replace(/'/g, "\\'")}')">Delete Brand (All Batches)</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--danger); margin-left:6px;" onclick="gmDeleteBrandAllMappings('${brand.brand_name.replace(/'/g, "\\'")}')">Delete Mapping</button>
                     </td>
                 </tr>
             `;

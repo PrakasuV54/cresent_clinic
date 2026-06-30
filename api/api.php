@@ -4268,9 +4268,89 @@ if ($uri === '/api/cron/backup' && $method === 'GET') {
     json_response($status);
 }
 
-// ═══════════════════════════════════════════
-// API — GENERIC MEDICINE MANAGEMENT MODULE
-// ═══════════════════════════════════════════
+function sync_generic_mappings($conn) {
+    // 1. Sync from agency_items to generic_mappings
+    $conn->exec("
+        INSERT INTO generic_mappings (brand_name, batch_number, generic_name, agency_name, stock, mrp, row_location, col_location, purchase_rate, selling_rate, category, pack_size, expiry_date, min_stock)
+        SELECT 
+            ai.item_name, 
+            ai.batch_number, 
+            ai.generic_name, 
+            (SELECT name FROM agency_suppliers WHERE id = ai.supplier_id LIMIT 1),
+            ai.stock, 
+            ai.mrp, 
+            ai.row_location, 
+            ai.col_location,
+            ai.purchase_price,
+            ai.selling_price,
+            ai.category,
+            ai.unit,
+            ai.expiry_date,
+            ai.min_stock
+        FROM agency_items ai
+        WHERE ai.generic_name IS NOT NULL AND TRIM(ai.generic_name) != ''
+        ON DUPLICATE KEY UPDATE
+            generic_name = VALUES(generic_name),
+            agency_name = VALUES(agency_name),
+            stock = VALUES(stock),
+            mrp = VALUES(mrp),
+            row_location = VALUES(row_location),
+            col_location = VALUES(col_location),
+            purchase_rate = VALUES(purchase_rate),
+            selling_rate = VALUES(selling_rate),
+            category = VALUES(category),
+            pack_size = VALUES(pack_size),
+            expiry_date = VALUES(expiry_date),
+            min_stock = VALUES(min_stock)
+    ");
+
+    // 2. Sync from inventory to generic_mappings
+    $conn->exec("
+        INSERT INTO generic_mappings (brand_name, batch_number, generic_name, agency_name, stock, mrp, row_location, col_location, purchase_rate, selling_rate, category, pack_size, expiry_date, min_stock)
+        SELECT 
+            i.name, 
+            i.batch_number, 
+            i.generic_name, 
+            i.agency_name,
+            i.stock, 
+            i.mrp, 
+            i.row_location, 
+            i.col_location,
+            0.00,
+            0.00,
+            i.category,
+            i.tablets_per_strip,
+            i.expiry_date,
+            i.min_stock
+        FROM inventory i
+        WHERE i.generic_name IS NOT NULL AND TRIM(i.generic_name) != ''
+        ON DUPLICATE KEY UPDATE
+            generic_name = VALUES(generic_name),
+            agency_name = VALUES(agency_name),
+            stock = VALUES(stock),
+            mrp = VALUES(mrp),
+            row_location = VALUES(row_location),
+            col_location = VALUES(col_location),
+            category = VALUES(category),
+            pack_size = VALUES(pack_size),
+            expiry_date = VALUES(expiry_date),
+            min_stock = VALUES(min_stock)
+    ");
+
+    // 3. Remove mappings from generic_mappings if they were cleared (set to NULL or empty) in the main tables
+    $conn->exec("
+        DELETE FROM generic_mappings 
+        WHERE (brand_name, batch_number) IN (
+            SELECT item_name, batch_number FROM agency_items WHERE generic_name IS NULL OR TRIM(generic_name) = ''
+        )
+    ");
+    $conn->exec("
+        DELETE FROM generic_mappings 
+        WHERE (brand_name, batch_number) IN (
+            SELECT name, batch_number FROM inventory WHERE generic_name IS NULL OR TRIM(generic_name) = ''
+        )
+    ");
+}
 
 /**
  * GET /api/generics/list
@@ -4283,87 +4363,7 @@ if ($uri === '/api/generics/list' && $method === 'GET') {
     $q = trim($_GET['q'] ?? '');
     $conn = get_db();
     try {
-        // 1. Sync from agency_items to generic_mappings
-        $conn->exec("
-            INSERT INTO generic_mappings (brand_name, batch_number, generic_name, agency_name, stock, mrp, row_location, col_location, purchase_rate, selling_rate, category, pack_size, expiry_date, min_stock)
-            SELECT 
-                ai.item_name, 
-                ai.batch_number, 
-                ai.generic_name, 
-                (SELECT name FROM agency_suppliers WHERE id = ai.supplier_id LIMIT 1),
-                ai.stock, 
-                ai.mrp, 
-                ai.row_location, 
-                ai.col_location,
-                ai.purchase_price,
-                ai.selling_price,
-                ai.category,
-                ai.unit,
-                ai.expiry_date,
-                ai.min_stock
-            FROM agency_items ai
-            WHERE ai.generic_name IS NOT NULL AND TRIM(ai.generic_name) != ''
-            ON DUPLICATE KEY UPDATE
-                generic_name = VALUES(generic_name),
-                agency_name = VALUES(agency_name),
-                stock = VALUES(stock),
-                mrp = VALUES(mrp),
-                row_location = VALUES(row_location),
-                col_location = VALUES(col_location),
-                purchase_rate = VALUES(purchase_rate),
-                selling_rate = VALUES(selling_rate),
-                category = VALUES(category),
-                pack_size = VALUES(pack_size),
-                expiry_date = VALUES(expiry_date),
-                min_stock = VALUES(min_stock)
-        ");
-
-        // 2. Sync from inventory to generic_mappings
-        $conn->exec("
-            INSERT INTO generic_mappings (brand_name, batch_number, generic_name, agency_name, stock, mrp, row_location, col_location, purchase_rate, selling_rate, category, pack_size, expiry_date, min_stock)
-            SELECT 
-                i.name, 
-                i.batch_number, 
-                i.generic_name, 
-                i.agency_name,
-                i.stock, 
-                i.mrp, 
-                i.row_location, 
-                i.col_location,
-                0.00,
-                0.00,
-                i.category,
-                i.tablets_per_strip,
-                i.expiry_date,
-                i.min_stock
-            FROM inventory i
-            WHERE i.generic_name IS NOT NULL AND TRIM(i.generic_name) != ''
-            ON DUPLICATE KEY UPDATE
-                generic_name = VALUES(generic_name),
-                agency_name = VALUES(agency_name),
-                stock = VALUES(stock),
-                mrp = VALUES(mrp),
-                row_location = VALUES(row_location),
-                col_location = VALUES(col_location),
-                category = VALUES(category),
-                pack_size = VALUES(pack_size),
-                expiry_date = VALUES(expiry_date),
-                min_stock = VALUES(min_stock)
-        ");
-
-        // 3. Remove mappings from generic_mappings if they were cleared (set to NULL or empty) in the main tables
-        $conn->exec("
-            DELETE FROM generic_mappings 
-            WHERE (brand_name, batch_number) IN (
-                SELECT item_name, batch_number FROM agency_items WHERE generic_name IS NULL OR TRIM(generic_name) = ''
-            )
-        ");
-        $conn->exec("
-            DELETE FROM generic_mappings 
-            WHERE (brand_name, batch_number) IN (
-                SELECT name, batch_number FROM inventory WHERE generic_name IS NULL OR TRIM(generic_name) = ''
-            )
-        ");
+        sync_generic_mappings($conn);
 
         // 4. Query from generic_mappings table
         $params = [];
@@ -4405,6 +4405,7 @@ if ($uri === '/api/generics/brands' && $method === 'GET') {
     }
     $conn = get_db();
     try {
+        sync_generic_mappings($conn);
         $is_unmapped = (strtolower(trim($generic)) === '(unmapped)');
         
         if ($is_unmapped) {
