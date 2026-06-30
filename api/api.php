@@ -5028,14 +5028,15 @@ if ($uri === '/api/generics/import' && $method === 'POST') {
                 }
             }
             elseif ($brand === '' && $generic !== '') {
-                // Scenario B: Generic Medicine Only
                 $check_exact_placeholder->execute([$generic]);
                 $placeholder_count = $check_exact_placeholder->fetchColumn();
                 
                 if ($placeholder_count > 0) {
                     $duplicate++;
                 } else {
-                    $insert_agency->execute(['(Unmapped Brand)', $generic, 'placeholder-batch', '(Unmapped Brand)']);
+                    $placeholder_batch = 'placeholder-' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $generic));
+                    $placeholder_batch = substr($placeholder_batch, 0, 100);
+                    $insert_agency->execute(['(Unmapped Brand)', $generic, $placeholder_batch, '(Unmapped Brand)']);
                     $imported++;
                 }
             }
