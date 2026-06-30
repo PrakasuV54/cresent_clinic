@@ -4470,53 +4470,134 @@ if ($uri === '/api/generics/update-mapping' && $method === 'POST') {
             }
         }
 
-        // Update agency_items
-        $stmt = $conn->prepare("
-            UPDATE agency_items SET
-                item_name = ?,
-                generic_name = ?,
-                category = ?,
-                batch_number = ?,
-                expiry_date = ?,
-                mrp = ?,
-                stock = ?,
-                unit = ?,
-                row_location = ?,
-                col_location = ?,
-                min_stock = ?,
-                supplier_id = ?
-            WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
-        ");
-        $stmt->execute([
-            $brand_name, $generic_name, $category, $batch_number, $expiry_date,
-            $mrp, $stock, $pack_size, $row_location, $col_location, $min_stock, $supplier_id,
-            $orig_brand, $orig_batch
-        ]);
-        $agency_rows = $stmt->rowCount();
+        // Check if there is an existing agency_item with the target (brand_name, batch_number)
+        $chk_agency = $conn->prepare("SELECT id, stock FROM agency_items WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))");
+        $chk_agency->execute([$brand_name, $batch_number]);
+        $existing_agency = $chk_agency->fetch(PDO::FETCH_ASSOC);
 
-        // Update inventory
-        $stmt2 = $conn->prepare("
-            UPDATE inventory SET
-                name = ?,
-                generic_name = ?,
-                category = ?,
-                batch_number = ?,
-                expiry_date = ?,
-                mrp = ?,
-                stock = ?,
-                tablets_per_strip = ?,
-                row_location = ?,
-                col_location = ?,
-                min_stock = ?,
-                agency_name = ?
-            WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
-        ");
-        $stmt2->execute([
-            $brand_name, $generic_name, $category, $batch_number, $expiry_date,
-            $mrp, $stock, $pack_size, $row_location, $col_location, $min_stock, $supplier_name,
-            $orig_brand, $orig_batch
-        ]);
-        $inv_rows = $stmt2->rowCount();
+        // Get the current agency_item being edited
+        $curr_agency_stmt = $conn->prepare("SELECT id, stock FROM agency_items WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))");
+        $curr_agency_stmt->execute([$orig_brand, $orig_batch]);
+        $curr_agency = $curr_agency_stmt->fetch(PDO::FETCH_ASSOC);
+
+        $agency_rows = 0;
+        if ($existing_agency && $curr_agency && (int)$existing_agency['id'] !== (int)$curr_agency['id']) {
+            // MERGE: Add stock to existing target item, update its fields, and delete the old item
+            $new_total_stock = (int)$existing_agency['stock'] + (int)$stock;
+            $stmt = $conn->prepare("
+                UPDATE agency_items SET
+                    generic_name = ?,
+                    category = ?,
+                    expiry_date = ?,
+                    mrp = ?,
+                    stock = ?,
+                    unit = ?,
+                    row_location = ?,
+                    col_location = ?,
+                    min_stock = ?,
+                    supplier_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $generic_name, $category, $expiry_date, $mrp, $new_total_stock,
+                $pack_size, $row_location, $col_location, $min_stock, $supplier_id,
+                $existing_agency['id']
+            ]);
+            $agency_rows = $stmt->rowCount();
+
+            // Update any purchase items pointing to old agency_item to point to target agency_item
+            $conn->prepare("UPDATE agency_purchase_items SET item_id = ? WHERE item_id = ?")->execute([$existing_agency['id'], $curr_agency['id']]);
+
+            // Delete old agency_item
+            $conn->prepare("DELETE FROM agency_items WHERE id = ?")->execute([$curr_agency['id']]);
+        } else {
+            // Normal update
+            $stmt = $conn->prepare("
+                UPDATE agency_items SET
+                    item_name = ?,
+                    generic_name = ?,
+                    category = ?,
+                    batch_number = ?,
+                    expiry_date = ?,
+                    mrp = ?,
+                    stock = ?,
+                    unit = ?,
+                    row_location = ?,
+                    col_location = ?,
+                    min_stock = ?,
+                    supplier_id = ?
+                WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
+            ");
+            $stmt->execute([
+                $brand_name, $generic_name, $category, $batch_number, $expiry_date,
+                $mrp, $stock, $pack_size, $row_location, $col_location, $min_stock, $supplier_id,
+                $orig_brand, $orig_batch
+            ]);
+            $agency_rows = $stmt->rowCount();
+        }
+
+        // Check if there is an existing inventory item with the target (brand_name, batch_number)
+        $chk_inv = $conn->prepare("SELECT id, stock FROM inventory WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))");
+        $chk_inv->execute([$brand_name, $batch_number]);
+        $existing_inv = $chk_inv->fetch(PDO::FETCH_ASSOC);
+
+        // Get the current inventory item being edited
+        $curr_inv_stmt = $conn->prepare("SELECT id, stock FROM inventory WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))");
+        $curr_inv_stmt->execute([$orig_brand, $orig_batch]);
+        $curr_inv = $curr_inv_stmt->fetch(PDO::FETCH_ASSOC);
+
+        $inv_rows = 0;
+        if ($existing_inv && $curr_inv && (int)$existing_inv['id'] !== (int)$curr_inv['id']) {
+            // MERGE: Add stock to existing target item, update its fields, and delete the old item
+            $new_total_stock = (int)$existing_inv['stock'] + (int)$stock;
+            $stmt2 = $conn->prepare("
+                UPDATE inventory SET
+                    generic_name = ?,
+                    category = ?,
+                    expiry_date = ?,
+                    mrp = ?,
+                    stock = ?,
+                    tablets_per_strip = ?,
+                    row_location = ?,
+                    col_location = ?,
+                    min_stock = ?,
+                    agency_name = ?
+                WHERE id = ?
+            ");
+            $stmt2->execute([
+                $generic_name, $category, $expiry_date, $mrp, $new_total_stock,
+                $pack_size, $row_location, $col_location, $min_stock, $supplier_name,
+                $existing_inv['id']
+            ]);
+            $inv_rows = $stmt2->rowCount();
+
+            // Delete old inventory item
+            $conn->prepare("DELETE FROM inventory WHERE id = ?")->execute([$curr_inv['id']]);
+        } else {
+            // Normal update
+            $stmt2 = $conn->prepare("
+                UPDATE inventory SET
+                    name = ?,
+                    generic_name = ?,
+                    category = ?,
+                    batch_number = ?,
+                    expiry_date = ?,
+                    mrp = ?,
+                    stock = ?,
+                    tablets_per_strip = ?,
+                    row_location = ?,
+                    col_location = ?,
+                    min_stock = ?,
+                    agency_name = ?
+                WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))
+            ");
+            $stmt2->execute([
+                $brand_name, $generic_name, $category, $batch_number, $expiry_date,
+                $mrp, $stock, $pack_size, $row_location, $col_location, $min_stock, $supplier_name,
+                $orig_brand, $orig_batch
+            ]);
+            $inv_rows = $stmt2->rowCount();
+        }
 
         // Update generic_mappings
         $stmt_gm = $conn->prepare("
