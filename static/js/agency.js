@@ -1832,7 +1832,10 @@ async function gmDeleteGeneric(genericName) {
         return;
     }
     try {
-        const res = await api('/api/generics/delete-generic', { generic_name: genericName });
+        const res = await api('/api/generics/delete-generic', {
+            method: 'POST',
+            body: { generic_name: genericName }
+        });
         if (res.success) {
             toast(res.message || 'Generic medicine deleted successfully.', 'success');
             loadGenericMedicines();
@@ -1844,12 +1847,15 @@ async function gmDeleteGeneric(genericName) {
     }
 }
 
-async function gmDeleteBrandMapping(brandName, batchNumber) {
+window.gmDeleteBrandMapping = async function(brandName, batchNumber) {
     if (!confirm(`Are you sure you want to delete this Brand Medicine mapping?\n\n"${brandName}" (Batch: ${batchNumber})\n\nThis will clear its generic category mapping, but keep the medicine row in database.`)) {
         return;
     }
     try {
-        const res = await api('/api/generics/delete-brand-mapping', { brand_name: brandName, batch_number: batchNumber });
+        const res = await api('/api/generics/delete-brand-mapping', {
+            method: 'POST',
+            body: { brand_name: brandName, batch_number: batchNumber }
+        });
         if (res.success) {
             toast(res.message || 'Brand mapping deleted successfully.', 'success');
             if (gmSelectedGeneric) {
@@ -1860,6 +1866,28 @@ async function gmDeleteBrandMapping(brandName, batchNumber) {
         }
     } catch (e) {
         toast(e.message || 'Failed to delete brand mapping.', 'error');
+    }
+}
+
+window.gmDeleteBrandAllMappings = async function(brandName) {
+    if (!confirm(`Are you sure you want to delete ALL mappings for Brand "${brandName}"?\n\nThis will clear generic name mapping for all batches of this brand, but keep the medicine rows in the database.`)) {
+        return;
+    }
+    try {
+        const res = await api('/api/generics/delete-brand-all-mappings', {
+            method: 'POST',
+            body: { brand_name: brandName }
+        });
+        if (res.success) {
+            toast(res.message || 'All brand mappings deleted successfully.', 'success');
+            if (gmSelectedGeneric) {
+                gmViewBrands(gmSelectedGeneric);
+            }
+        } else {
+            toast(res.error || 'Failed to delete brand mappings.', 'error');
+        }
+    } catch (e) {
+        toast(e.message || 'Failed to delete brand mappings.', 'error');
     }
 }
 
@@ -1995,7 +2023,8 @@ async function gmViewBrands(genericName) {
                     <td>${statusBadge}</td>
                     <td>
                         <button class="btn btn-outline btn-sm" onclick="gmOpenEditModal('${brandJsonEsc}')">Edit Details</button>
-                        <button class="btn btn-outline btn-sm" style="color:var(--danger); margin-left:6px;" onclick="gmDeleteBrandMapping('${brand.brand_name.replace(/'/g, "\\'")}', '${brand.batch_number.replace(/'/g, "\\'")}')">Delete</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--danger); margin-left:6px;" onclick="gmDeleteBrandMapping('${brand.brand_name.replace(/'/g, "\\'")}', '${brand.batch_number.replace(/'/g, "\\'")}')">Delete Batch</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--danger); margin-left:6px;" onclick="gmDeleteBrandAllMappings('${brand.brand_name.replace(/'/g, "\\'")}')">Delete Brand (All Batches)</button>
                     </td>
                 </tr>
             `;

@@ -101,6 +101,8 @@ function get_db()
                         col_location VARCHAR(100) DEFAULT NULL,
                         category VARCHAR(100) DEFAULT NULL,
                         pack_size VARCHAR(100) DEFAULT NULL,
+                        expiry_date VARCHAR(100) DEFAULT NULL,
+                        min_stock INT DEFAULT 0,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         UNIQUE KEY uniq_brand_batch (brand_name, batch_number)
@@ -108,6 +110,30 @@ function get_db()
                 ");
             } catch (Exception $e) {
                 // Ignore if error
+            }
+
+            // Self-healing columns for generic_mappings
+            $existing_gm_cols = [];
+            try {
+                $q = $conn->query("SHOW COLUMNS FROM generic_mappings");
+                if ($q) {
+                    while ($row = $q->fetch(PDO::FETCH_ASSOC)) {
+                        $existing_gm_cols[] = strtolower($row['Field']);
+                    }
+                }
+            } catch (Exception $e) {}
+
+            $gm_col_migrations = [
+                'expiry_date' => "ALTER TABLE generic_mappings ADD COLUMN expiry_date VARCHAR(100) DEFAULT NULL",
+                'min_stock' => "ALTER TABLE generic_mappings ADD COLUMN min_stock INT DEFAULT 0",
+            ];
+
+            foreach ($gm_col_migrations as $col_name => $sql) {
+                if (empty($existing_gm_cols) || !in_array(strtolower($col_name), $existing_gm_cols)) {
+                    try {
+                        $conn->exec($sql);
+                    } catch (Exception $e) {}
+                }
             }
         }
 
@@ -352,6 +378,7 @@ function init_db()
     $conn->exec("CREATE TABLE IF NOT EXISTS agency_inventory_movements (id INT AUTO_INCREMENT PRIMARY KEY, item_id INT, movement_type VARCHAR(100), quantity INT, reference_id INT, reference_type VARCHAR(100), notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (item_id) REFERENCES agency_items(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $conn->exec("CREATE TABLE IF NOT EXISTS medicine_returns (id INT AUTO_INCREMENT PRIMARY KEY, return_date VARCHAR(100), return_time VARCHAR(100), patient_name VARCHAR(255), bill_number VARCHAR(100), medicine_name VARCHAR(255), returned_qty DECIMAL(10,2), processed_by VARCHAR(255), reason TEXT, sale_type VARCHAR(100), sale_id INT, patient_id INT, unit_price DECIMAL(10,2), return_amount DECIMAL(10,2), total_refund_amount DECIMAL(10,2), refund_payment_mode VARCHAR(100), return_type VARCHAR(100) DEFAULT 'Single Tablet', account_id INT DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $conn->exec("CREATE TABLE IF NOT EXISTS upi_accounts (id INT AUTO_INCREMENT PRIMARY KEY, account_name VARCHAR(255) NOT NULL, short_name VARCHAR(255) UNIQUE NOT NULL, bank_name VARCHAR(255), account_number VARCHAR(100), upi_id VARCHAR(255), notes TEXT, is_active TINYINT DEFAULT 1, account_holder_name VARCHAR(255) DEFAULT NULL, ifsc_code VARCHAR(100) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $conn->exec("CREATE TABLE IF NOT EXISTS generic_mappings (id INT AUTO_INCREMENT PRIMARY KEY, generic_name VARCHAR(255) NOT NULL, brand_name VARCHAR(255) NOT NULL, agency_name VARCHAR(255) DEFAULT NULL, item_id INT DEFAULT NULL, stock INT DEFAULT 0, batch_number VARCHAR(100) DEFAULT NULL, mrp DECIMAL(10, 2) DEFAULT 0.00, purchase_rate DECIMAL(10, 2) DEFAULT 0.00, selling_rate DECIMAL(10, 2) DEFAULT 0.00, row_location VARCHAR(100) DEFAULT NULL, col_location VARCHAR(100) DEFAULT NULL, category VARCHAR(100) DEFAULT NULL, pack_size VARCHAR(100) DEFAULT NULL, expiry_date VARCHAR(100) DEFAULT NULL, min_stock INT DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uniq_brand_batch (brand_name, batch_number)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Ensure monitor user exists
     $stmt = $conn->query("SELECT COUNT(*) FROM users WHERE role='monitor'");
