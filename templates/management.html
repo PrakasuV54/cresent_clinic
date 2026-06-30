@@ -1352,8 +1352,8 @@
                                 </div>
 
                                 <div class="form-row">
-                                    <div class="form-group"><label>Batch Number *</label><input type="text"
-                                            id="agItemBatch" required></div>
+                                    <div class="form-group"><label>Batch Number</label><input type="text"
+                                            id="agItemBatch"></div>
                                     <div class="form-group"><label>Mfg Date (MM/YY)</label><input type="text"
                                             id="agItemMfg" class="form-control" placeholder="MM/YY"></div>
                                     <div class="form-group"><label>Exp Date (MM/YY)</label><input type="text"
@@ -2412,8 +2412,8 @@
                     </div>
                     <hr id="invDivider" style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
                     <div id="invGroupBatch" class="responsive-grid-3">
-                        <div class="form-group"><label id="labelBatch">Batch Number *</label><input type="text"
-                                id="invBatch" required></div>
+                        <div class="form-group"><label id="labelBatch">Batch Number</label><input type="text"
+                                id="invBatch"></div>
                         <div class="form-group"><label>Mfg Date (MM-YY)</label><input type="text" id="invMfg"
                                 placeholder="MM-YY" pattern="(0[1-9]|1[0-2])[-/]\d{2}" title="Format: MM-YY or MM/YY"></div>
                         <div class="form-group"><label>Exp Date (MM-YY)</label><input type="text" id="invExpiry"
@@ -2750,9 +2750,9 @@
     <!-- Include PDF.js for PDF import parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-    <script src="/static/js/script.js?v=38"></script>
+    <script src="/static/js/script.js?v=39"></script>
     <script src="/static/js/reports.js?v=5"></script>
-    <script src="/static/js/agency.js?v=38"></script>
+    <script src="/static/js/agency.js?v=39"></script>
     <script>
         let allPatients = [];
         let allScans = [];
@@ -3201,7 +3201,7 @@
             groupBatch.style.display = 'grid';
             groupCodes.style.display = 'grid';
             divider.style.display = 'block';
-            invBatchInput.required = true;
+            invBatchInput.required = false;
             if (groupTPS) groupTPS.style.display = 'none';
             if (groupNS) groupNS.style.display = 'none';
             const labelStockUnit = document.getElementById('labelStockUnit');

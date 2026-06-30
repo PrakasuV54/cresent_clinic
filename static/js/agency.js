@@ -2077,10 +2077,6 @@ window.gmSaveMapping = async function() {
         toast('Brand name cannot be empty', 'error');
         return;
     }
-    if (!batchNumber) {
-        toast('Batch number cannot be empty', 'error');
-        return;
-    }
 
     try {
         const payload = {
