@@ -1433,18 +1433,89 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
     $brand_name = trim($input['brand_name'] ?? '');
     $agency_name = trim($input['agency_name'] ?? '');
 
-    $stmt = $conn->prepare("UPDATE inventory SET 
-        item_code = ?, name = ?, generic_name = ?, brand_name = ?, agency_name = ?,
-        category = ?, hsn_code = ?, batch_number = ?,
-        mfg_date = ?, expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?,
-        stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?
-        WHERE id = ?");
-    $stmt->execute([
-        $item_code, $name, $generic_name, $brand_name, $agency_name,
-        $category, $hsn_code, $batch_number,
-        $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price,
-        $stock, $tablets_per_strip, $min_stock, $row_location, $col_location, $id
-    ]);
+    // Get original name and batch before editing
+    $orig_stmt = $conn->prepare("SELECT name, batch_number FROM inventory WHERE id = ?");
+    $orig_stmt->execute([$id]);
+    $orig = $orig_stmt->fetch(PDO::FETCH_ASSOC);
+    $orig_name = $orig['name'] ?? '';
+    $orig_batch = $orig['batch_number'] ?? '';
+
+    // Check if there is an existing agency_item with the target (name, batch_number)
+    $chk_agency = $conn->prepare("SELECT id, stock FROM agency_items WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))");
+    $chk_agency->execute([$name, $batch_number]);
+    $existing_agency = $chk_agency->fetch(PDO::FETCH_ASSOC);
+
+    // Get the current agency_item being edited
+    $curr_agency_stmt = $conn->prepare("SELECT id, stock FROM agency_items WHERE TRIM(LOWER(item_name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?))");
+    $curr_agency_stmt->execute([$orig_name, $orig_batch]);
+    $curr_agency = $curr_agency_stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing_agency && $curr_agency && (int)$existing_agency['id'] !== (int)$curr_agency['id']) {
+        // MERGE agency items: Add stock to existing target item, update its fields, and delete the old item
+        $new_agency_stock = (int)$existing_agency['stock'] + (int)$stock;
+        $upd_agency = $conn->prepare("UPDATE agency_items SET 
+            generic_name = ?, category = ?, expiry_date = ?, mrp = ?, stock = ?, row_location = ?, col_location = ?, min_stock = ?
+            WHERE id = ?");
+        $upd_agency->execute([
+            $generic_name, $category, $expiry_date, $mrp, $new_agency_stock, $row_location, $col_location, $min_stock,
+            $existing_agency['id']
+        ]);
+        
+        // Update purchase items pointing to old agency item
+        $conn->prepare("UPDATE agency_purchase_items SET item_id = ? WHERE item_id = ?")->execute([$existing_agency['id'], $curr_agency['id']]);
+        
+        // Delete old agency item
+        $conn->prepare("DELETE FROM agency_items WHERE id = ?")->execute([$curr_agency['id']]);
+    } else if ($curr_agency) {
+        // Normal update of current agency item
+        $upd_agency = $conn->prepare("UPDATE agency_items SET 
+            item_name = ?, generic_name = ?, category = ?, batch_number = ?, expiry_date = ?, mrp = ?, stock = ?, row_location = ?, col_location = ?, min_stock = ?
+            WHERE id = ?");
+        $upd_agency->execute([
+            $name, $generic_name, $category, $batch_number, $expiry_date, $mrp, $stock, $row_location, $col_location, $min_stock,
+            $curr_agency['id']
+        ]);
+    }
+
+    // Check if target name and batch already exist under a different ID in inventory
+    $chk_inv = $conn->prepare("SELECT id, stock FROM inventory WHERE TRIM(LOWER(name)) = TRIM(LOWER(?)) AND TRIM(LOWER(batch_number)) = TRIM(LOWER(?)) AND id != ?");
+    $chk_inv->execute([$name, $batch_number, $id]);
+    $existing_inv = $chk_inv->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing_inv) {
+        // MERGE: Add stock to existing target item, update fields of existing item, and delete the duplicate item ($id)
+        $new_total_stock = (int)$existing_inv['stock'] + (int)$stock;
+        $upd = $conn->prepare("UPDATE inventory SET 
+            item_code = ?, name = ?, generic_name = ?, brand_name = ?, agency_name = ?,
+            category = ?, hsn_code = ?,
+            mfg_date = ?, expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?,
+            stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?
+            WHERE id = ?");
+        $upd->execute([
+            $item_code, $name, $generic_name, $brand_name, $agency_name,
+            $category, $hsn_code,
+            $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price,
+            $new_total_stock, $tablets_per_strip, $min_stock, $row_location, $col_location,
+            $existing_inv['id']
+        ]);
+        
+        // Delete the old duplicate item being edited
+        $conn->prepare("DELETE FROM inventory WHERE id = ?")->execute([$id]);
+    } else {
+        // Normal update
+        $stmt = $conn->prepare("UPDATE inventory SET 
+            item_code = ?, name = ?, generic_name = ?, brand_name = ?, agency_name = ?,
+            category = ?, hsn_code = ?, batch_number = ?,
+            mfg_date = ?, expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?,
+            stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?
+            WHERE id = ?");
+        $stmt->execute([
+            $item_code, $name, $generic_name, $brand_name, $agency_name,
+            $category, $hsn_code, $batch_number,
+            $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price,
+            $stock, $tablets_per_strip, $min_stock, $row_location, $col_location, $id
+        ]);
+    }
 
     // Auto-save new category to agency_categories
     if (!empty($category)) {
