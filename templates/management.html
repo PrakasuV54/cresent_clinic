@@ -998,8 +998,10 @@
                                             oninput="gmFilterList(this.value)"
                                             autocomplete="off">
                                         <button class="btn btn-outline btn-sm" onclick="loadGenericMedicines()" title="Refresh">↻ Refresh</button>
-                                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('gmImportInput').click()" title="Import Generic Mappings" style="background:linear-gradient(135deg,#10b981,#059669); border:none;">📥 Import Mappings</button>
-                                        <input type="file" id="gmImportInput" accept=".xlsx, .xls, .csv, .pdf" style="display:none;" onchange="handleGenericImport(this)">
+                                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('gmImportExcelInput').click()" title="Import Generic Medicines from Excel" style="background:linear-gradient(135deg,#10b981,#059669); border:none;">📥 Import Excel/CSV</button>
+                                        <input type="file" id="gmImportExcelInput" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleGenericImportExcel(this)">
+                                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('gmImportPdfInput').click()" title="Import Generic Medicines from PDF" style="background:linear-gradient(135deg,#e11d48,#be123c); border:none;">📄 Import PDF</button>
+                                        <input type="file" id="gmImportPdfInput" accept=".pdf" style="display:none;" onchange="handleGenericImportPdf(this)">
                                     </div>
                                 </div>
 
@@ -1045,9 +1047,12 @@
                                 <!-- VIEW: BRAND DETAIL (hidden by default) -->
                                 <div id="gmDetailView" style="display:none;">
                                     <!-- Breadcrumb back -->
-                                    <div style="margin-bottom:16px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
                                         <button class="btn btn-outline btn-sm" onclick="gmBackToList()">
                                             ← Back to Generic List
+                                        </button>
+                                        <button class="btn btn-primary btn-sm" onclick="gmOpenAddBrandModal()">
+                                            ➕ Add Brand
                                         </button>
                                     </div>
 
@@ -1194,6 +1199,27 @@
                                     style="background:linear-gradient(135deg,#6366f1,#8b5cf6); border:none;">
                                     💾 Save Mapping
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Generic Name Modal -->
+                <div class="modal-overlay" id="gmEditGenericModal">
+                    <div class="modal" style="max-width:400px;">
+                        <div class="modal-header" style="background:var(--primary); color:#fff; border-radius:var(--radius) var(--radius) 0 0;">
+                            <h3 style="color:#fff; display:flex; align-items:center; gap:8px;"><span>📝</span> Edit Generic Name</h3>
+                            <button class="modal-close" onclick="closeModal('gmEditGenericModal')" style="color:#fff;">✕</button>
+                        </div>
+                        <div class="modal-body" style="padding: 20px;">
+                            <input type="hidden" id="gmEditGenericOldName">
+                            <div class="form-group">
+                                <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); font-weight:600;">Generic Medicine Name</label>
+                                <input type="text" id="gmEditGenericNewName" class="form-control" required style="width: 100%; box-sizing: border-box; margin-top: 8px;">
+                            </div>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+                                <button type="button" class="btn btn-outline" onclick="closeModal('gmEditGenericModal')">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="gmSaveGenericName()">Save Changes</button>
                             </div>
                         </div>
                     </div>
@@ -3483,6 +3509,9 @@
                     const masterInv = document.getElementById('master-inventory');
                     if (masterInv && masterInv.style.display !== 'none') {
                         loadMasterInventory();
+                    }
+                    if (typeof gmSelectedGeneric !== 'undefined' && gmSelectedGeneric) {
+                        gmViewBrands(gmSelectedGeneric);
                     }
                 }
             } catch (e) { if (e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }

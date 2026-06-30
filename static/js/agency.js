@@ -1920,6 +1920,7 @@ function renderGmList() {
                 <td style="text-align:center;"><span class="badge" style="background:var(--primary-light); color:var(--primary); font-weight:600; font-size:0.9em; padding:4px 10px;">${item.brand_count}</span></td>
                 <td>
                     <button class="btn btn-primary btn-sm" onclick="gmViewBrands('${genericEscaped}')">View Brands</button>
+                    <button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="gmEditGenericName('${genericEscaped}')">Edit</button>
                     <button class="btn btn-outline btn-sm" style="color:var(--danger); margin-left:6px;" onclick="gmDeleteGeneric('${genericEscaped}')">Delete</button>
                 </td>
             </tr>
@@ -2031,205 +2032,188 @@ function gmBackToList() {
 }
 
 // Open Edit Mapping modal
+// Open Edit Mapping modal using standard editMedModal
 window.gmOpenEditModal = function(encodedBrand) {
     const brand = JSON.parse(decodeURIComponent(encodedBrand));
-    
-    // Set hidden original identifiers
-    document.getElementById('gmEditOrigBrandName').value = brand.brand_name || '';
-    document.getElementById('gmEditOrigBatchNumber').value = brand.batch_number || '';
-    
-    // Populate all fields
-    document.getElementById('gmEditBrandName').value = brand.brand_name || '';
-    document.getElementById('gmEditNewGeneric').value = brand.generic_name || '';
-    document.getElementById('gmEditCategory').value = brand.category || 'Tablet';
-    document.getElementById('gmEditBatchNumber').value = brand.batch_number || '';
-    document.getElementById('gmEditStock').value = brand.stock || 0;
-    document.getElementById('gmEditMinStock').value = brand.min_stock || 0;
-    document.getElementById('gmEditMrp').value = brand.mrp || 0.00;
-    document.getElementById('gmEditExpiryDate').value = brand.expiry_date || '';
-    document.getElementById('gmEditPackSize').value = brand.pack_size || '';
-    document.getElementById('gmEditSupplierName').value = brand.supplier_name || '';
-    document.getElementById('gmEditRowLocation').value = brand.row_location || '';
-    document.getElementById('gmEditColLocation').value = brand.col_location || '';
-    
-    openModal('gmEditModal');
+    const item = {
+        id: brand.inventory_id || '',
+        name: brand.brand_name || '',
+        category: brand.category || 'Tablet',
+        item_code: brand.item_code || '',
+        hsn_code: brand.hsn_code || '',
+        batch_number: brand.batch_number || '',
+        mfg_date: brand.mfg_date || '',
+        expiry_date: brand.expiry_date || '',
+        purchase_price: brand.purchase_price || 0,
+        selling_price: brand.selling_price || 0,
+        mrp: brand.mrp || 0,
+        stock: brand.stock || 0,
+        tablets_per_strip: brand.pack_size || '',
+        min_stock: brand.min_stock || 0,
+        row_location: brand.row_location || '',
+        col_location: brand.col_location || '',
+        agency_name: brand.supplier_name || '',
+        generic_name: brand.generic_name || '',
+        brand_name: brand.brand_name || ''
+    };
+    if (typeof editMedModal === 'function') {
+        editMedModal(item);
+    } else {
+        toast('Edit form is not available.', 'error');
+    }
 };
 
-// Save the updated details back to database
-window.gmSaveMapping = async function() {
-    const origBrand = document.getElementById('gmEditOrigBrandName').value;
-    const origBatch = document.getElementById('gmEditOrigBatchNumber').value;
-    
-    const brandName = document.getElementById('gmEditBrandName').value.trim();
-    const newGeneric = document.getElementById('gmEditNewGeneric').value.trim();
-    const category = document.getElementById('gmEditCategory').value;
-    const batchNumber = document.getElementById('gmEditBatchNumber').value.trim();
-    const stock = parseInt(document.getElementById('gmEditStock').value) || 0;
-    const minStock = parseInt(document.getElementById('gmEditMinStock').value) || 0;
-    const mrp = parseFloat(document.getElementById('gmEditMrp').value) || 0.00;
-    const expiryDate = document.getElementById('gmEditExpiryDate').value.trim();
-    const packSize = document.getElementById('gmEditPackSize').value.trim();
-    const supplierName = document.getElementById('gmEditSupplierName').value.trim();
-    const rowLocation = document.getElementById('gmEditRowLocation').value.trim();
-    const colLocation = document.getElementById('gmEditColLocation').value.trim();
+window.gmEditGenericName = function(genericName) {
+    document.getElementById('gmEditGenericOldName').value = genericName;
+    document.getElementById('gmEditGenericNewName').value = genericName;
+    openModal('gmEditGenericModal');
+};
 
-    if (!brandName) {
-        toast('Brand name cannot be empty', 'error');
+window.gmSaveGenericName = async function() {
+    const oldName = document.getElementById('gmEditGenericOldName').value.trim();
+    const newName = document.getElementById('gmEditGenericNewName').value.trim();
+    if (!newName) {
+        toast('Generic name cannot be empty', 'error');
         return;
     }
-
     try {
-        const payload = {
-            orig_brand_name: origBrand,
-            orig_batch_number: origBatch,
-            brand_name: brandName,
-            generic_name: newGeneric,
-            category: category,
-            batch_number: batchNumber,
-            stock: stock,
-            min_stock: minStock,
-            mrp: mrp,
-            expiry_date: expiryDate,
-            pack_size: packSize,
-            supplier_name: supplierName,
-            row_location: rowLocation,
-            col_location: colLocation
-        };
-        const response = await api('/api/generics/update-mapping', {
+        const res = await api('/api/generics/rename-generic', {
             method: 'POST',
-            body: payload
+            body: { old_name: oldName, new_name: newName }
         });
-
-        if (response.success) {
-            toast('Medicine details updated successfully!');
-            closeModal('gmEditModal');
-            
-            // Reload details if in detail view, else reload list
-            if (gmSelectedGeneric) {
-                gmViewBrands(newGeneric || gmSelectedGeneric);
-            } else {
-                loadGenericMedicines();
-            }
+        if (res.success) {
+            toast('Generic medicine renamed successfully!', 'success');
+            closeModal('gmEditGenericModal');
+            loadGenericMedicines();
         } else {
-            toast(response.error || 'Failed to save details', 'error');
+            toast(res.error || 'Failed to rename generic medicine', 'error');
         }
     } catch (e) {
-        toast(e.message || 'Failed to save details', 'error');
+        toast(e.message || 'Error renaming generic medicine', 'error');
     }
-}
+};
+
+window.gmOpenAddBrandModal = function() {
+    document.getElementById('invId').value = '';
+    document.getElementById('invName').value = '';
+    document.getElementById('invCat').value = 'Tablet';
+    document.getElementById('invAgencyName').value = '';
+    document.getElementById('invGenericName').value = gmSelectedGeneric;
+    document.getElementById('invBrandName').value = '';
+    document.getElementById('invCode').value = '';
+    document.getElementById('invHsn').value = '';
+    document.getElementById('invBatch').value = '';
+    document.getElementById('invMfg').value = '';
+    document.getElementById('invExpiry').value = '';
+    document.getElementById('invPurchase').value = '0';
+    document.getElementById('invSell').value = '0';
+    document.getElementById('invMrp').value = '0';
+    document.getElementById('invTabletsPerStrip').value = '';
+    document.getElementById('invStock').value = '0';
+    document.getElementById('invMinStock').value = '0';
+    document.getElementById('invRow').value = '';
+    document.getElementById('invCol').value = '';
+    
+    document.getElementById('invModalTitle').textContent = `Add Brand for: ${gmSelectedGeneric}`;
+    
+    if (typeof toggleInventoryFields === 'function') toggleInventoryFields();
+    openModal('invModal');
+};
 
 // Handle client-side file upload & parsing for Excel (.xlsx, .xls), CSV, and PDF
-window.handleGenericImport = function(input) {
+// Handle client-side Excel/CSV upload & parsing for Generic Name import only
+window.handleGenericImportExcel = function(input) {
     const file = input.files[0];
     if (!file) return;
     
-    const extension = file.name.split('.').pop().toLowerCase();
-    
-    if (extension === 'xlsx' || extension === 'xls' || extension === 'csv') {
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                
-                let brandColIdx = 0;
-                let genericColIdx = 1;
-                
-                if (json.length > 0) {
-                    const headers = json[0].map(h => String(h || '').toLowerCase().trim());
-                    const bIdx = headers.findIndex(h => h.includes('brand') || h.includes('medicine') || h.includes('item') || h.includes('name'));
-                    const gIdx = headers.findIndex(h => h.includes('generic') || h.includes('formula'));
-                    if (bIdx !== -1) brandColIdx = bIdx;
-                    if (gIdx !== -1) genericColIdx = gIdx;
-                }
-                
-                const mappings = [];
-                for (let i = 1; i < json.length; i++) {
-                    const row = json[i];
-                    if (!row) continue;
-                    const brand = row[brandColIdx] ? String(row[brandColIdx]).trim() : '';
-                    const generic = row[genericColIdx] ? String(row[genericColIdx]).trim() : '';
-                    if (brand || generic) {
-                        mappings.push({
-                            brand_name: brand,
-                            generic_name: generic
-                        });
-                    }
-                }
-                
-                if (mappings.length === 0) {
-                    toast('No valid medicine mappings found in the uploaded file.', 'error');
-                    return;
-                }
-                
-                await submitImportedMappings(mappings);
-            } catch (err) {
-                toast('Error reading Excel/CSV: ' + err.message, 'error');
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            let genericColIdx = 0;
+            if (json.length > 0) {
+                const headers = json[0].map(h => String(h || '').toLowerCase().trim());
+                const gIdx = headers.findIndex(h => h.includes('generic') || h.includes('formula') || h.includes('medicine') || h.includes('name'));
+                if (gIdx !== -1) genericColIdx = gIdx;
             }
-        };
-        reader.readAsArrayBuffer(file);
-    } else if (extension === 'pdf') {
-        toast('Extracting medicine mappings from PDF...', 'info');
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            try {
-                const pdfjsLib = window['pdfjs-dist/build/pdf'];
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-                
-                const typedarray = new Uint8Array(e.target.result);
-                const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
-                
-                let textLines = [];
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    let pageLines = textContent.items.map(item => item.str);
-                    textLines = textLines.concat(pageLines);
+            
+            const mappings = [];
+            for (let i = 1; i < json.length; i++) {
+                const row = json[i];
+                if (!row) continue;
+                const generic = row[genericColIdx] ? String(row[genericColIdx]).trim() : '';
+                if (generic) {
+                    mappings.push({
+                        brand_name: '',
+                        generic_name: generic
+                    });
                 }
-                
-                const mappings = [];
-                textLines.forEach(line => {
-                    const cleanLine = line.trim();
-                    if (!cleanLine) return;
-                    
-                    let parts = cleanLine.split(/[:\-\t]/);
-                    if (parts.length >= 2) {
-                        const brand = parts[0].trim();
-                        const generic = parts[1].trim();
-                        if ((brand || generic) && brand.length < 80 && generic.length < 80) {
-                            mappings.push({
-                                brand_name: brand,
-                                generic_name: generic
-                            });
-                        }
-                    } else if (cleanLine.length > 0 && cleanLine.length < 80) {
-                        // Single value line: send as brand_name, backend classifies it
-                        mappings.push({
-                            brand_name: cleanLine,
-                            generic_name: ''
-                        });
-                    }
-                });
-                
-                if (mappings.length === 0) {
-                    toast('No valid text lines found in PDF.', 'warning');
-                    return;
-                }
-                
-                await submitImportedMappings(mappings);
-            } catch (err) {
-                toast('Error reading PDF: ' + err.message, 'error');
             }
-        };
-        reader.readAsArrayBuffer(file);
-    } else {
-        toast('Unsupported file type. Please upload Excel, CSV, or PDF.', 'error');
-    }
+            
+            if (mappings.length === 0) {
+                toast('No valid generic medicines found in the Excel file.', 'error');
+                return;
+            }
+            
+            await submitImportedMappings(mappings);
+        } catch (err) {
+            toast('Error reading Excel: ' + err.message, 'error');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    input.value = '';
+};
+
+// Handle client-side PDF upload & parsing for Generic Name import only
+window.handleGenericImportPdf = function(input) {
+    const file = input.files[0];
+    if (!file) return;
     
-    // Reset file input value so it triggers change event again
+    toast('Extracting generic medicines from PDF...', 'info');
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+            
+            const typedarray = new Uint8Array(e.target.result);
+            const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+            
+            let textLines = [];
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                let pageLines = textContent.items.map(item => item.str);
+                textLines = textLines.concat(pageLines);
+            }
+            
+            const mappings = [];
+            textLines.forEach(line => {
+                const cleanLine = line.trim();
+                if (cleanLine && cleanLine.length < 80) {
+                    mappings.push({
+                        brand_name: '',
+                        generic_name: cleanLine
+                    });
+                }
+            });
+            
+            if (mappings.length === 0) {
+                toast('No valid text lines found in PDF.', 'warning');
+                return;
+            }
+            
+            await submitImportedMappings(mappings);
+        } catch (err) {
+            toast('Error reading PDF: ' + err.message, 'error');
+        }
+    };
+    reader.readAsArrayBuffer(file);
     input.value = '';
 };
 

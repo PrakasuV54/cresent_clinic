@@ -4421,7 +4421,8 @@ if ($uri === '/api/generics/brands' && $method === 'GET') {
                     row_location,
                     col_location,
                     pack_size,
-                    min_stock
+                    min_stock,
+                    inventory_id
                 FROM (
                     SELECT
                         ai.item_name AS brand_name,
@@ -4435,7 +4436,8 @@ if ($uri === '/api/generics/brands' && $method === 'GET') {
                         ai.row_location,
                         ai.col_location,
                         ai.unit AS pack_size,
-                        ai.min_stock
+                        ai.min_stock,
+                        (SELECT i.id FROM inventory i WHERE TRIM(LOWER(i.name)) = TRIM(LOWER(ai.item_name)) AND TRIM(LOWER(i.batch_number)) = TRIM(LOWER(ai.batch_number)) LIMIT 1) AS inventory_id
                     FROM agency_items ai
                     LEFT JOIN agency_suppliers s ON ai.supplier_id = s.id
                     WHERE ai.generic_name IS NULL OR TRIM(ai.generic_name) = ''
@@ -4454,7 +4456,8 @@ if ($uri === '/api/generics/brands' && $method === 'GET') {
                         i.row_location,
                         i.col_location,
                         i.tablets_per_strip AS pack_size,
-                        i.min_stock
+                        i.min_stock,
+                        i.id AS inventory_id
                     FROM inventory i
                     WHERE (i.generic_name IS NULL OR TRIM(i.generic_name) = '')
                       AND NOT EXISTS (
@@ -4468,21 +4471,28 @@ if ($uri === '/api/generics/brands' && $method === 'GET') {
         } else {
             $stmt = $conn->prepare("
                 SELECT
-                    brand_name,
-                    generic_name,
-                    category,
-                    batch_number,
-                    expiry_date,
-                    mrp,
-                    stock,
-                    agency_name AS supplier_name,
-                    row_location,
-                    col_location,
-                    pack_size,
-                    min_stock
-                FROM generic_mappings
-                WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))
-                ORDER BY brand_name ASC, batch_number ASC
+                    gm.brand_name,
+                    gm.generic_name,
+                    gm.category,
+                    gm.batch_number,
+                    gm.expiry_date,
+                    gm.mrp,
+                    gm.stock,
+                    gm.agency_name AS supplier_name,
+                    gm.row_location,
+                    gm.col_location,
+                    gm.pack_size,
+                    gm.min_stock,
+                    i.id AS inventory_id,
+                    i.item_code,
+                    i.hsn_code,
+                    i.mfg_date,
+                    i.purchase_price,
+                    i.selling_price
+                FROM generic_mappings gm
+                LEFT JOIN inventory i ON TRIM(LOWER(i.name)) = TRIM(LOWER(gm.brand_name)) AND TRIM(LOWER(i.batch_number)) = TRIM(LOWER(gm.batch_number))
+                WHERE TRIM(LOWER(gm.generic_name)) = TRIM(LOWER(?))
+                ORDER BY gm.brand_name ASC, gm.batch_number ASC
             ");
             $stmt->execute([$generic]);
         }
@@ -4776,6 +4786,54 @@ if ($uri === '/api/generics/delete-generic' && $method === 'POST') {
             'success'     => true,
             'message'     => "Generic medicine '$generic_name' deleted. Cleared mappings across $agency_rows agency + $inv_rows inventory records."
         ]);
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) $conn->rollBack();
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * POST /api/generics/rename-generic
+ * Body: { old_name: "...", new_name: "..." }
+ * Renames a generic medicine name across all mappings.
+ */
+if ($uri === '/api/generics/rename-generic' && $method === 'POST') {
+    enforce_api_auth(['pharmacist']);
+    $old_name = trim($input['old_name'] ?? '');
+    $new_name = trim($input['new_name'] ?? '');
+    if ($old_name === '' || $new_name === '') {
+        json_response(['error' => 'old_name and new_name are required'], 400);
+    }
+    $conn = get_db();
+    try {
+        $conn->beginTransaction();
+        
+        // Update agency_items
+        $stmt1 = $conn->prepare("UPDATE agency_items SET generic_name = ? WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))");
+        $stmt1->execute([$new_name, $old_name]);
+        
+        // Update inventory
+        $stmt2 = $conn->prepare("UPDATE inventory SET generic_name = ? WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))");
+        $stmt2->execute([$new_name, $old_name]);
+        
+        // Update generic_mappings
+        $stmt3 = $conn->prepare("UPDATE generic_mappings SET generic_name = ? WHERE TRIM(LOWER(generic_name)) = TRIM(LOWER(?))");
+        $stmt3->execute([$new_name, $old_name]);
+        
+        // Audit trail
+        $conn->prepare("
+            INSERT INTO agency_audit_trail
+                (user_id, action, table_name, record_id, old_value, new_value, details)
+            VALUES (?, 'GENERIC_RENAME', 'agency_items+inventory', 0, ?, ?, ?)
+        ")->execute([
+            $_SESSION['user_id'] ?? 0,
+            $old_name,
+            $new_name,
+            "Renamed generic medicine from '$old_name' to '$new_name'."
+        ]);
+        
+        $conn->commit();
+        json_response(['success' => true]);
     } catch (Exception $e) {
         if ($conn->inTransaction()) $conn->rollBack();
         json_response(['success' => false, 'error' => $e->getMessage()], 500);
