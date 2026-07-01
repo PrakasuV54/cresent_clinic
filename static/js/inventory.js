@@ -347,6 +347,9 @@
                     if (typeof gmSelectedGeneric !== 'undefined' && gmSelectedGeneric) {
                         gmViewBrands(gmSelectedGeneric);
                     }
+                    if (typeof window.triggerLiveSync === 'function') {
+                        window.triggerLiveSync();
+                    }
                 }
             } catch (e) { if (e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
         }
@@ -360,6 +363,9 @@
                 const masterInv = document.getElementById('master-inventory');
                 if (masterInv && masterInv.style.display !== 'none') {
                     loadMasterInventory();
+                }
+                if (typeof window.triggerLiveSync === 'function') {
+                    window.triggerLiveSync();
                 }
             } catch(e) { if(e.message) toast(e.message, 'error'); else toast('Operation failed', 'error'); }
         }
@@ -378,4 +384,8 @@
                 loadInventory();
             }
         }, 5000);
+
+        // Expose functions to window object for script_app.js live reload routing
+        window.loadInventory = loadInventory;
+        window.deleteInventory = deleteInventory;
 
