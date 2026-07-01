@@ -165,7 +165,7 @@ function generate_master_report_pdf($date) {
     $gents_rev = 0; $ladies_rev = 0;
     foreach ($stmt_doc->fetchAll(PDO::FETCH_ASSOC) as $d) {
         $type = strtolower($d['doctor_type'] ?? '');
-        if (strpos($type, 'gent') !== false) $gents_rev += (float)$d['doc_rev'];
+        if (strpos($type, 'gents') !== false) $gents_rev += (float)$d['doc_rev'];
         else $ladies_rev += (float)$d['doc_rev'];
     }
 

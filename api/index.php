@@ -264,7 +264,7 @@ if ($uri === '/control_access') {
     }
 
     if ($module === 'doctor') {
-        $type = $_GET['type'] ?? 'Gent';
+        $type = $_GET['type'] ?? 'Gents';
         $id = $_GET['id'] ?? null;
         $conn = get_db();
         

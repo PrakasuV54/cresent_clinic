@@ -416,7 +416,7 @@
                     <div style="display:flex; gap:12px; align-items:center;">
                         <select id="analyticsDoctor" class="form-control" onchange="loadAnalytics()">
                             <option value="all">All Doctors</option>
-                            <option value="Gent">Gent Doctor</option>
+                            <option value="Gents">Gents Doctor</option>
                             <option value="Lady">Lady Doctor</option>
                         </select>
                         <select id="analyticsPeriod" class="form-control"
@@ -763,7 +763,7 @@
                     </div>
                     <div style="display:flex; gap:12px; align-items:center; flex-wrap: wrap;">
                         <div
-                            style="display:flex; align-items:center; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 12px;">
+                            style="display:none; align-items:center; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 12px;">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)"
                                 stroke-width="2" style="margin-right:8px;">
                                 <circle cx="11" cy="11" r="8"></circle>
@@ -1263,7 +1263,7 @@
                         <div class="form-group" id="docTypeGroup">
                             <label>Doctor Gender</label>
                             <select id="userDocType">
-                                <option value="Gent">Male</option>
+                                <option value="Gents">Male</option>
                                 <option value="Lady">Female</option>
                             </select>
                         </div>
@@ -1481,7 +1481,7 @@
 
         function formatDoctorName(name, type) {
             if (!name) return name;
-            const suffix = (type && type.toLowerCase().includes('gent')) ? ' (Sir)' : ' (Madam)';
+            const suffix = (type && type.toLowerCase().includes('gents')) ? ' (Sir)' : ' (Madam)';
             if (name.includes('(Sir)') || name.includes('(Madam)')) return name;
             return name + suffix;
         }

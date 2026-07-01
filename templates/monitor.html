@@ -344,7 +344,7 @@
 
                     activeDoctors.forEach((doc) => {
                         let title = doc.display_name;
-                        if (doc.doctor_type === 'Gent') title = title.replace('Sir', '').trim() + ' (Sir)';
+                        if (doc.doctor_type === 'Gents') title = title.replace('Sir', '').trim() + ' (Sir)';
                         if (doc.doctor_type === 'Lady') title = title.replace('Mam', '').replace('Madam', '').trim() + ' (Madam)';
 
                         const col = document.createElement('div');

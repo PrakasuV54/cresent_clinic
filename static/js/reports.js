@@ -1209,7 +1209,7 @@ function showReportDetails(type) {
         `;
     } else if (type === 'gents' || type === 'ladies') {
         title = `${type === 'gents' ? 'Gents (Sir)' : 'Ladies (Madam)'} Doctor Fee Breakdown`;
-        const matchType = type === 'gents' ? 'gent' : 'lady';
+        const matchType = type === 'gents' ? 'gents' : 'lady';
         const filteredDocs = (reportData.doctors || []).filter(d => (d.doctor_type || '').toLowerCase().indexOf(matchType) !== -1);
 
         html = `

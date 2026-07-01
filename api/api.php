@@ -1868,7 +1868,7 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
 
     $doctor_type = $_GET['doctor_type'] ?? 'all';
     $doc_filter = "";
-    if ($doctor_type !== 'all' && in_array($doctor_type, ['Gent', 'Lady'])) {
+    if ($doctor_type !== 'all' && in_array($doctor_type, ['Gents', 'Lady'])) {
         $doc_filter = " AND doctor_type = '$doctor_type' ";
     }
 
@@ -2491,6 +2491,10 @@ if ($uri === '/api/management/users' && $method === 'GET') {
     $stmt = $conn->query("SELECT id, username, password, role, doctor_type, display_name, details, specialization, photo_path, token_prefix, is_active, doctor_registration_number, admin_security_password FROM users ORDER BY role, display_name");
     $rows = $stmt->fetchAll();
     foreach ($rows as &$row) {
+        if ($row['role'] === 'doctor' && $row['doctor_type'] !== 'Gents' && $row['doctor_type'] !== 'Lady') {
+            $row['doctor_type'] = 'Gents';
+            $conn->exec("UPDATE users SET doctor_type='Gents' WHERE id=" . (int)$row['id']);
+        }
         if (!empty($row['photo_path']) && strpos($row['photo_path'], '/static/') !== 0) {
             $row['photo_path'] = get_supabase_signed_url('profiles', basename($row['photo_path']));
         }

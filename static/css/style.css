@@ -1099,7 +1099,7 @@ body::before {
   color: #10b981;
 }
 
-.badge-gent,
+.badge-gents,
 .badge-lady {
   background: #f1f5f9;
   color: #64748b;
@@ -2015,7 +2015,7 @@ input[type=number] {
 }
 
 /* Tablets & Small Laptops (max-width: 1024px) */
-@media (max-width: 1024px) {
+@media (max-width: 900px) {
   .sidebar {
     width: 80px;
   }

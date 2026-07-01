@@ -219,7 +219,7 @@ if ($action === 'get_reports') {
     foreach ($stmt_doc->fetchAll(PDO::FETCH_ASSOC) as $d) {
         $type = strtolower($d['doctor_type'] ?? '');
         $rev = (float)($d['doc_rev'] ?? 0);
-        if (strpos($type, 'gent') !== false) {
+        if (strpos($type, 'gents') !== false) {
             $gents_rev += $rev;
         } else {
             $ladies_rev += $rev;
@@ -683,7 +683,7 @@ if ($action === 'get_print_report') {
     foreach ($stmt_doc->fetchAll(PDO::FETCH_ASSOC) as $d) {
         $type = strtolower($d['doctor_type'] ?? '');
         $rev = (float)($d['doc_rev'] ?? 0);
-        if (strpos($type, 'gent') !== false) {
+        if (strpos($type, 'gents') !== false) {
             $gents_rev += $rev;
         } else {
             $ladies_rev += $rev;

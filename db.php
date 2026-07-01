@@ -47,6 +47,9 @@ function get_db()
         $stmt = $conn->query("SHOW TABLES LIKE 'users'");
         if (!$stmt->fetch()) {
             init_db_schema($conn);
+        } else {
+            // Run a one-time migration to convert existing male doctor records to 'Gents'
+            $conn->exec("UPDATE users SET doctor_type='Gents' WHERE role='doctor' AND doctor_type != 'Gents' AND doctor_type != 'Lady'");
         }
 
         // Always run column migrations once per process to keep existing DBs up-to-date
@@ -322,7 +325,7 @@ function init_db()
         $seed[] = ['receptionist', $pw_rec, 'receptionist', null, 'Receptionist', null];
         
         $pw_doc = getenv('DEFAULT_DOCTOR_PASSWORD') ?: '11';
-        $seed[] = ['dr.rasith', $pw_doc, 'doctor', 'Gent', 'Dr. Mohamed Rasith Sir', 'G'];
+        $seed[] = ['dr.rasith', $pw_doc, 'doctor', 'Gents', 'Dr. Mohamed Rasith Sir', 'G'];
         $seed[] = ['dr.basheera', $pw_doc, 'doctor', 'Lady', 'Dr. Jannathul Basheera Mam', 'L'];
         
         $pw_pha = getenv('DEFAULT_PHARMACIST_PASSWORD') ?: 'pharma123';
@@ -398,7 +401,7 @@ function format_doctor_name($name, $type)
 {
     if (!$name || $name === 'Unknown Doctor')
         return $name;
-    $suffix = (stripos($type, 'Gent') !== false) ? ' (Sir)' : ' (Madam)';
+    $suffix = (stripos($type, 'Gents') !== false) ? ' (Sir)' : ' (Madam)';
     if (strpos($name, '(Sir)') !== false || strpos($name, '(Madam)') !== false)
         return $name;
     return $name . $suffix;
