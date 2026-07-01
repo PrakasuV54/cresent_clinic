@@ -2135,28 +2135,45 @@ window.handleGenericImportExcel = function(input) {
             const worksheet = workbook.Sheets[firstSheetName];
             const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             
-            let genericColIdx = 0;
+            let genericColIdx = -1;
+            let brandColIdx = -1;
+            
             if (json.length > 0) {
                 const headers = json[0].map(h => String(h || '').toLowerCase().trim());
-                let gIdx = headers.findIndex(h => h === 'generic name' || h === 'generic medicine' || h === 'medicine name' || h === 'item name' || h === 'generic');
-                if (gIdx === -1) {
-                    gIdx = headers.findIndex(h => 
-                        (h.includes('generic') || h.includes('formula') || h.includes('medicine') || h.includes('name')) && 
-                        !h.includes('brand') && !h.includes('company') && !h.includes('supplier') && !h.includes('first') && !h.includes('last')
-                    );
+                
+                // Find Generic Name column
+                genericColIdx = headers.findIndex(h => 
+                    h === 'generic name' || h === 'generic medicine' || h === 'generic' || h === 'formula' || h === 'composition'
+                );
+                
+                // Find Brand Name column
+                brandColIdx = headers.findIndex(h => 
+                    h === 'brand name' || h === 'brand' || h === 'medicine name' || h === 'item name' || h === 'product name' || h === 'name' || h === 'medicine'
+                );
+                
+                // Resolve same-column conflict
+                if (genericColIdx !== -1 && genericColIdx === brandColIdx) {
+                    if (headers[genericColIdx].includes('generic') || headers[genericColIdx].includes('formula') || headers[genericColIdx].includes('composition')) {
+                        brandColIdx = -1;
+                    } else {
+                        genericColIdx = -1;
+                    }
                 }
                 
-                if (gIdx !== -1) {
-                    genericColIdx = gIdx;
-                } else if (headers.length > 1 && json.length > 1) {
-                    // Fallback: guess by looking at the first data row
-                    for(let c = 0; c < json[1].length; c++) {
-                        const val = String(json[1][c] || '').trim();
-                        if (val && isNaN(Number(val)) && val.length > 2 && val.toLowerCase() !== 's.no' && val.toLowerCase() !== 'sno') {
-                            genericColIdx = c;
-                            break;
-                        }
+                // Fallbacks if one or both are not found
+                if (genericColIdx === -1 && brandColIdx === -1) {
+                    if (headers.length > 1) {
+                        brandColIdx = 0;
+                        genericColIdx = 1;
+                    } else {
+                        genericColIdx = 0;
                     }
+                } else if (genericColIdx === -1) {
+                    const otherIdx = headers.findIndex((h, idx) => idx !== brandColIdx && (h.includes('generic') || h.includes('formula') || h.includes('composition') || h.includes('detail')));
+                    if (otherIdx !== -1) genericColIdx = otherIdx;
+                } else if (brandColIdx === -1) {
+                    const otherIdx = headers.findIndex((h, idx) => idx !== genericColIdx && (h.includes('brand') || h.includes('medicine') || h.includes('name') || h.includes('item')));
+                    if (otherIdx !== -1) brandColIdx = otherIdx;
                 }
             }
             
@@ -2164,17 +2181,20 @@ window.handleGenericImportExcel = function(input) {
             for (let i = 1; i < json.length; i++) {
                 const row = json[i];
                 if (!row) continue;
-                const generic = row[genericColIdx] ? String(row[genericColIdx]).trim() : '';
-                if (generic) {
+                
+                const generic = genericColIdx !== -1 && row[genericColIdx] ? String(row[genericColIdx]).trim() : '';
+                const brand = brandColIdx !== -1 && row[brandColIdx] ? String(row[brandColIdx]).trim() : '';
+                
+                if (generic || brand) {
                     mappings.push({
-                        brand_name: '',
+                        brand_name: brand,
                         generic_name: generic
                     });
                 }
             }
             
             if (mappings.length === 0) {
-                toast('No valid generic medicines found in the Excel file.', 'error');
+                toast('No valid generic or brand medicines found in the Excel file.', 'error');
                 return;
             }
             
