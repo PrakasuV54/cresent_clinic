@@ -1363,9 +1363,16 @@ if ($uri === '/api/inventory/add' && $method === 'POST') {
     $brand_name = trim($input['brand_name'] ?? $name);
     $agency_name = trim($input['agency_name'] ?? '');
 
+    $supplier_id = null;
+    if ($agency_name !== '') {
+        $supp_stmt = $conn->prepare("SELECT id FROM agency_suppliers WHERE TRIM(LOWER(name)) = TRIM(LOWER(?))");
+        $supp_stmt->execute([$agency_name]);
+        $supplier_id = $supp_stmt->fetchColumn() ?: null;
+    }
+
     // MySQL-compatible duplicate key update
-    $sql = "INSERT INTO inventory (item_code, name, generic_name, brand_name, agency_name, category, hsn_code, batch_number, mfg_date, expiry_date, mrp, purchase_price, selling_price, opening_stock, stock, min_stock, tablets_per_strip, row_location, col_location)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    $sql = "INSERT INTO inventory (item_code, name, generic_name, brand_name, agency_name, category, hsn_code, batch_number, mfg_date, expiry_date, mrp, purchase_price, selling_price, opening_stock, stock, min_stock, tablets_per_strip, row_location, col_location, supplier_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE 
                 stock = stock + VALUES(stock),
                 opening_stock = opening_stock + VALUES(opening_stock),
@@ -1383,10 +1390,11 @@ if ($uri === '/api/inventory/add' && $method === 'POST') {
                 col_location = VALUES(col_location),
                 generic_name = VALUES(generic_name),
                 brand_name = VALUES(brand_name),
-                agency_name = VALUES(agency_name)";
+                agency_name = VALUES(agency_name),
+                supplier_id = VALUES(supplier_id)";
     
     $stmt = $conn->prepare($sql);
-    $stmt->execute([$item_code, $name, $generic_name, $brand_name, $agency_name, $category, $hsn_code, $batch_number, $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price, $stock, $stock, $min_stock, $tablets_per_strip, $row_location, $col_location]);
+    $stmt->execute([$item_code, $name, $generic_name, $brand_name, $agency_name, $category, $hsn_code, $batch_number, $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price, $stock, $stock, $min_stock, $tablets_per_strip, $row_location, $col_location, $supplier_id]);
     
     // Auto-save new category to agency_categories
     if (!empty($category)) {
@@ -1433,6 +1441,13 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
     $brand_name = trim($input['brand_name'] ?? '');
     $agency_name = trim($input['agency_name'] ?? '');
 
+    $supplier_id = null;
+    if ($agency_name !== '') {
+        $supp_stmt = $conn->prepare("SELECT id FROM agency_suppliers WHERE TRIM(LOWER(name)) = TRIM(LOWER(?))");
+        $supp_stmt->execute([$agency_name]);
+        $supplier_id = $supp_stmt->fetchColumn() ?: null;
+    }
+
     // Get original name and batch before editing
     $orig_stmt = $conn->prepare("SELECT name, batch_number FROM inventory WHERE id = ?");
     $orig_stmt->execute([$id]);
@@ -1454,10 +1469,10 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
         // MERGE agency items: Add stock to existing target item, update its fields, and delete the old item
         $new_agency_stock = (int)$existing_agency['stock'] + (int)$stock;
         $upd_agency = $conn->prepare("UPDATE agency_items SET 
-            generic_name = ?, category = ?, expiry_date = ?, mrp = ?, stock = ?, row_location = ?, col_location = ?, min_stock = ?
+            generic_name = ?, category = ?, expiry_date = ?, mrp = ?, stock = ?, row_location = ?, col_location = ?, min_stock = ?, supplier_id = ?
             WHERE id = ?");
         $upd_agency->execute([
-            $generic_name, $category, $expiry_date, $mrp, $new_agency_stock, $row_location, $col_location, $min_stock,
+            $generic_name, $category, $expiry_date, $mrp, $new_agency_stock, $row_location, $col_location, $min_stock, $supplier_id,
             $existing_agency['id']
         ]);
         
@@ -1469,10 +1484,10 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
     } else if ($curr_agency) {
         // Normal update of current agency item
         $upd_agency = $conn->prepare("UPDATE agency_items SET 
-            item_name = ?, generic_name = ?, category = ?, batch_number = ?, expiry_date = ?, mrp = ?, stock = ?, row_location = ?, col_location = ?, min_stock = ?
+            item_name = ?, generic_name = ?, category = ?, batch_number = ?, expiry_date = ?, mrp = ?, stock = ?, row_location = ?, col_location = ?, min_stock = ?, supplier_id = ?
             WHERE id = ?");
         $upd_agency->execute([
-            $name, $generic_name, $category, $batch_number, $expiry_date, $mrp, $stock, $row_location, $col_location, $min_stock,
+            $name, $generic_name, $category, $batch_number, $expiry_date, $mrp, $stock, $row_location, $col_location, $min_stock, $supplier_id,
             $curr_agency['id']
         ]);
     }
@@ -1489,14 +1504,15 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
             item_code = ?, name = ?, generic_name = ?, brand_name = ?, agency_name = ?,
             category = ?, hsn_code = ?,
             mfg_date = ?, expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?,
-            stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?
+            stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?,
+            supplier_id = ?
             WHERE id = ?");
         $upd->execute([
             $item_code, $name, $generic_name, $brand_name, $agency_name,
             $category, $hsn_code,
             $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price,
             $new_total_stock, $tablets_per_strip, $min_stock, $row_location, $col_location,
-            $existing_inv['id']
+            $supplier_id, $existing_inv['id']
         ]);
         
         // Delete the old duplicate item being edited
@@ -1507,13 +1523,15 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
             item_code = ?, name = ?, generic_name = ?, brand_name = ?, agency_name = ?,
             category = ?, hsn_code = ?, batch_number = ?,
             mfg_date = ?, expiry_date = ?, mrp = ?, purchase_price = ?, selling_price = ?,
-            stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?
+            stock = ?, tablets_per_strip = ?, min_stock = ?, row_location = ?, col_location = ?,
+            supplier_id = ?
             WHERE id = ?");
         $stmt->execute([
             $item_code, $name, $generic_name, $brand_name, $agency_name,
             $category, $hsn_code, $batch_number,
             $mfg_date, $expiry_date, $mrp, $purchase_price, $selling_price,
-            $stock, $tablets_per_strip, $min_stock, $row_location, $col_location, $id
+            $stock, $tablets_per_strip, $min_stock, $row_location, $col_location,
+            $supplier_id, $id
         ]);
     }
 

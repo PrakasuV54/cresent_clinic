@@ -138,6 +138,11 @@ function get_db()
                     } catch (Exception $e) {}
                 }
             }
+            // One-time/run-time sync for supplier_ids on existing manual items
+            try {
+                $conn->exec("UPDATE inventory i JOIN agency_suppliers s ON TRIM(LOWER(i.agency_name)) = TRIM(LOWER(s.name)) SET i.supplier_id = s.id WHERE i.supplier_id IS NULL");
+                $conn->exec("UPDATE agency_items a JOIN inventory i ON a.item_name = i.name AND a.batch_number = i.batch_number AND a.supplier_id IS NULL AND i.supplier_id IS NOT NULL SET a.supplier_id = i.supplier_id");
+            } catch (Exception $e) {}
         }
 
         return $conn;
