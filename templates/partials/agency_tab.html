@@ -248,8 +248,7 @@
                                             oninput="gmFilterList(this.value)"
                                             autocomplete="off">
                                         <button class="btn btn-outline btn-sm" onclick="loadGenericMedicines()" title="Refresh">↻ Refresh</button>
-                                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('gmImportExcelInput').click()" title="Import Generic Medicines from Excel" style="background:linear-gradient(135deg,#10b981,#059669); border:none;">📥 Import Excel/CSV</button>
-                                        <input type="file" id="gmImportExcelInput" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleGenericImportExcel(this)">
+
                                         <button class="btn btn-primary btn-sm" onclick="document.getElementById('gmImportPdfInput').click()" title="Import Generic Medicines from PDF" style="background:linear-gradient(135deg,#e11d48,#be123c); border:none;">📄 Import PDF</button>
                                         <input type="file" id="gmImportPdfInput" accept=".pdf" style="display:none;" onchange="handleGenericImportPdf(this)">
                                     </div>
