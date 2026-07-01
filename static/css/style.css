@@ -2014,41 +2014,7 @@ input[type=number] {
   }
 }
 
-/* Tablets & Small Laptops (max-width: 1024px) */
-@media (max-width: 900px) {
-  .sidebar {
-    width: 80px;
-  }
 
-  .sidebar-header h2,
-  .sidebar-header small,
-  .nav-item {
-    font-size: 0;
-  }
-
-  .user-info .name,
-  .user-info .role-label {
-    display: none;
-  }
-
-  .nav-item {
-    justify-content: center;
-    padding: 16px;
-  }
-
-  .nav-item svg {
-    width: 24px;
-    height: 24px;
-    margin: 0;
-  }
-
-  .main-content {
-    margin-left: 80px;
-    padding: 32px;
-    width: calc(100% - 80px);
-    max-width: calc(100% - 80px);
-  }
-}
 
 /* Split Login Mobile / Tablet Adjustments (max-width: 900px) */
 @media (max-width: 900px) {
