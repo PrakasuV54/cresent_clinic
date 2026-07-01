@@ -2318,6 +2318,76 @@ async function loadAgencyAgenciesView() {
 }
 
 async function loadAgencyMedicines(agencyId, agencyName, btn) {
+    if (window.innerWidth <= 768 && btn) {
+        // Toggle mobile accordion
+        const nextRow = btn.nextSibling;
+        if (nextRow && nextRow.classList && nextRow.classList.contains('agency-medicines-expanded-row')) {
+            nextRow.remove();
+            btn.style.background = '';
+            btn.style.fontWeight = 'normal';
+            return;
+        }
+
+        // Remove any other expanded rows
+        document.querySelectorAll('#agencyViewList .agency-medicines-expanded-row').forEach(r => r.remove());
+        document.querySelectorAll('#agencyViewList .nav-item-tr').forEach(b => {
+            b.style.background = '';
+            b.style.fontWeight = 'normal';
+        });
+
+        btn.style.background = 'var(--bg-hover)';
+        btn.style.fontWeight = '600';
+
+        // Insert loading row
+        const loadingRow = document.createElement('tr');
+        loadingRow.className = 'agency-medicines-expanded-row';
+        loadingRow.innerHTML = `
+            <td style="padding: 15px; background: var(--bg-secondary);">
+                <div style="color: var(--text-secondary); text-align: center; padding: 10px;">Loading medicines...</div>
+            </td>
+        `;
+        btn.parentNode.insertBefore(loadingRow, btn.nextSibling);
+
+        try {
+            const res = await api(`/api/agency_medicine_list?supplier_id=${agencyId}`);
+            if (!res.success) throw new Error(res.error || 'Failed to load medicines');
+            
+            const meds = res.medicines || [];
+            if (!meds.length) {
+                loadingRow.querySelector('td').innerHTML = `
+                    <div style="color: var(--text-secondary); text-align: center; padding: 10px;">No medicines found for this agency</div>
+                `;
+                return;
+            }
+
+            let medsHtml = `<div style="display: flex; flex-direction: column; gap: 10px; padding: 10px 0;">`;
+            meds.forEach(m => {
+                medsHtml += `
+                    <div style="border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="color: var(--text-primary); font-size: 0.95rem;">${m.name}</strong>
+                            <span class="badge badge-success" style="font-size: 0.75rem; background: var(--primary); color: white; padding: 3px 8px; border-radius: 4px;">Qty: ${m.stock}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between;">
+                            <span>Cat: ${m.category || '-'}</span>
+                            <span>Batch: ${m.batch_number || '-'}</span>
+                            <span>MRP: ₹${parseFloat(m.mrp || 0).toFixed(2)}</span>
+                            <span>Exp: ${m.expiry_date || '-'}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            medsHtml += `</div>`;
+            loadingRow.querySelector('td').innerHTML = medsHtml;
+        } catch (e) {
+            if (e.message) toast(e.message, 'error');
+            loadingRow.querySelector('td').innerHTML = `
+                <div style="color: var(--danger); text-align: center; padding: 10px;">Failed to load medicines</div>
+            `;
+        }
+        return;
+    }
+
     // Update active state
     document.querySelectorAll('#agencyViewList .nav-item-tr').forEach(b => {
         b.style.background = '';
