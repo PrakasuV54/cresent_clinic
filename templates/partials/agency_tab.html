@@ -347,9 +347,9 @@
 
                             <!-- START AGENCY MEDICINES VIEW TAB -->
                             <div id="agency-agencies-view" class="agency-tab-content" style="display:none; padding:20px;">
-                                <div style="display: flex; gap: 20px; height: 75vh;">
+                                <div class="agency-view-container" style="display: flex; gap: 20px; height: 75vh;">
                                     <!-- Left Pane: List of Agencies -->
-                                    <div style="flex: 0 0 300px; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;">
+                                    <div class="agency-view-left" style="flex: 0 0 300px; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;">
                                         <div style="flex: 1; overflow-y: auto;">
                                             <div class="table-responsive" style="margin: 0; border: none; box-shadow: none;">
                                                 <table class="data-table" style="width: 100%; margin-bottom: 0; text-align: left;">
@@ -366,7 +366,7 @@
                                         </div>
                                     </div>
                                     <!-- Right Pane: Medicines for selected Agency -->
-                                    <div style="flex: 1; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;">
+                                    <div class="agency-view-right" style="flex: 1; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;">
                                         <div style="padding: 15px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); display: flex; justify-content: space-between; align-items: center;">
                                             <h3 id="agencyViewTitle" style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Select an Agency</h3>
                                             <div id="agencyViewActions"></div>

@@ -2301,3 +2301,21 @@ input[type=number] {
   }
 }
 
+/* Responsive Agency View for Mobile */
+@media (max-width: 768px) {
+  .agency-view-container {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  .agency-view-left {
+    flex: 0 0 200px !important;
+    height: 200px !important;
+    max-height: 200px !important;
+  }
+  .agency-view-right {
+    flex: 1 1 auto !important;
+    height: 400px !important;
+    max-height: 400px !important;
+  }
+}
+
