@@ -804,6 +804,12 @@ if (!String.prototype.toFixed) {
                 if (window.loadDirectSales) window.loadDirectSales();
                 if (window.openDirectPharmacy) openDirectPharmacy();
             }
+            if (id === 'Inventory') {
+                if (typeof window.loadInventory === 'function') window.loadInventory();
+            }
+            if (id === 'Agency') {
+                if (typeof window.loadAgencyStock === 'function') window.loadAgencyStock();
+            }
         };
 
         window.currentPharmacyFilter = 'All';
