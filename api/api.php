@@ -3565,7 +3565,7 @@ if ($uri === '/api/agency/reports' && $method === 'GET') {
     $conn = get_db();
     
     // Expiry Report
-    $exp_stmt = $conn->query("SELECT * FROM agency_items WHERE expiry_date != '' ORDER BY expiry_date ASC LIMIT 50");
+    $exp_stmt = $conn->query("SELECT i.*, s.name as agency_name FROM agency_items i LEFT JOIN agency_suppliers s ON i.supplier_id = s.id WHERE i.expiry_date != '' ORDER BY i.expiry_date ASC LIMIT 50");
     $expiry_report = $exp_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Purchase Report
