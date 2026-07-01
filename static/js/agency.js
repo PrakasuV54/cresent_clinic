@@ -2126,6 +2126,7 @@ window.handleGenericImportExcel = function(input) {
     const file = input.files[0];
     if (!file) return;
     
+    toast('Parsing Excel file...', 'info');
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
@@ -2135,51 +2136,69 @@ window.handleGenericImportExcel = function(input) {
             const worksheet = workbook.Sheets[firstSheetName];
             const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             
+            // Clean empty rows
+            const rows = json.filter(row => row && row.length > 0 && row.some(cell => String(cell || '').trim() !== ''));
+            if (rows.length === 0) {
+                toast('The Excel file is empty.', 'error');
+                return;
+            }
+            
             let genericColIdx = -1;
             let brandColIdx = -1;
+            let startRowIdx = 1;
             
-            if (json.length > 0) {
-                const headers = json[0].map(h => String(h || '').toLowerCase().trim());
-                
-                // Find Generic Name column
-                genericColIdx = headers.findIndex(h => 
-                    h === 'generic name' || h === 'generic medicine' || h === 'generic' || h === 'formula' || h === 'composition'
-                );
-                
-                // Find Brand Name column
-                brandColIdx = headers.findIndex(h => 
-                    h === 'brand name' || h === 'brand' || h === 'medicine name' || h === 'item name' || h === 'product name' || h === 'name' || h === 'medicine'
-                );
+            // Search for header row in the first 5 rows
+            let headerRowIdx = -1;
+            for (let r = 0; r < Math.min(5, rows.length); r++) {
+                const cells = rows[r].map(c => String(c || '').toLowerCase().trim());
+                const hasGenericHeader = cells.some(c => c.includes('generic') || c.includes('formula') || c.includes('composition'));
+                const hasBrandHeader = cells.some(c => c.includes('brand') || c.includes('medicine') || c.includes('name') || c.includes('item') || c.includes('product'));
+                if (hasGenericHeader || hasBrandHeader) {
+                    headerRowIdx = r;
+                    break;
+                }
+            }
+            
+            if (headerRowIdx !== -1) {
+                const headers = rows[headerRowIdx].map(h => String(h || '').toLowerCase().trim());
+                genericColIdx = headers.findIndex(h => h.includes('generic') || h.includes('formula') || h.includes('composition'));
+                brandColIdx = headers.findIndex(h => h.includes('brand') || h.includes('medicine') || h.includes('name') || h.includes('item') || h.includes('product'));
                 
                 // Resolve same-column conflict
                 if (genericColIdx !== -1 && genericColIdx === brandColIdx) {
-                    if (headers[genericColIdx].includes('generic') || headers[genericColIdx].includes('formula') || headers[genericColIdx].includes('composition')) {
+                    if (headers[genericColIdx].includes('generic') || headers[genericColIdx].includes('formula')) {
                         brandColIdx = -1;
                     } else {
                         genericColIdx = -1;
                     }
                 }
-                
-                // Fallbacks if one or both are not found
-                if (genericColIdx === -1 && brandColIdx === -1) {
-                    if (headers.length > 1) {
-                        brandColIdx = 0;
-                        genericColIdx = 1;
-                    } else {
-                        genericColIdx = 0;
-                    }
-                } else if (genericColIdx === -1) {
-                    const otherIdx = headers.findIndex((h, idx) => idx !== brandColIdx && (h.includes('generic') || h.includes('formula') || h.includes('composition') || h.includes('detail')));
-                    if (otherIdx !== -1) genericColIdx = otherIdx;
+                startRowIdx = headerRowIdx + 1;
+            }
+            
+            // Guess columns if headers aren't detected
+            if (genericColIdx === -1 && brandColIdx === -1) {
+                startRowIdx = 0;
+                const sampleRow = rows[0];
+                if (sampleRow.length >= 2) {
+                    brandColIdx = 0;
+                    genericColIdx = 1;
+                } else {
+                    genericColIdx = 0;
+                }
+            } else {
+                const sampleRow = rows[startRowIdx] || [];
+                if (genericColIdx === -1) {
+                    genericColIdx = (brandColIdx === 0 && sampleRow.length > 1) ? 1 : 0;
+                    if (genericColIdx === brandColIdx) genericColIdx = -1;
                 } else if (brandColIdx === -1) {
-                    const otherIdx = headers.findIndex((h, idx) => idx !== genericColIdx && (h.includes('brand') || h.includes('medicine') || h.includes('name') || h.includes('item')));
-                    if (otherIdx !== -1) brandColIdx = otherIdx;
+                    brandColIdx = (genericColIdx === 0 && sampleRow.length > 1) ? 1 : 0;
+                    if (brandColIdx === genericColIdx) brandColIdx = -1;
                 }
             }
             
             const mappings = [];
-            for (let i = 1; i < json.length; i++) {
-                const row = json[i];
+            for (let i = startRowIdx; i < rows.length; i++) {
+                const row = rows[i];
                 if (!row) continue;
                 
                 const generic = genericColIdx !== -1 && row[genericColIdx] ? String(row[genericColIdx]).trim() : '';
@@ -2198,6 +2217,7 @@ window.handleGenericImportExcel = function(input) {
                 return;
             }
             
+            toast(`Found ${mappings.length} medicines. Importing...`, 'info');
             await submitImportedMappings(mappings);
         } catch (err) {
             toast('Error reading Excel: ' + err.message, 'error');
