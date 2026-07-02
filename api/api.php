@@ -948,10 +948,14 @@ if ($uri === '/api/direct_sales/add' && $method === 'POST') {
 
         $total_cost = 0.0;
 
-        foreach ($medicines as $m) {
+        foreach ($medicines as &$m) {
             $name     = $m['name'] ?? null;
             $qty      = (int)($m['qty'] ?? 0);
             $batch_id = $m['batch_id'] ?? '';
+            $rev      = (float)($m['amount'] ?? 0);
+            
+            $m_cost = 0.0;
+            $m['net_qty'] = $qty;
 
             if ($name && $qty > 0) {
                 if ($batch_id) {
@@ -960,7 +964,7 @@ if ($uri === '/api/direct_sales/add' && $method === 'POST') {
                     $row = $stmt->fetch();
                     if ($row) {
                         $tps = max(1, (int)($row['tablets_per_strip'] ?? 1));
-                        $total_cost += ((float)$row['purchase_price'] / $tps) * $qty;
+                        $m_cost = ((float)$row['purchase_price'] / $tps) * $qty;
                         $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - ?, 0) WHERE id=?")->execute([$qty, $batch_id]);
                         sync_stock_item($conn, $row['name'], $row['batch_number'], 'pharmacy');
                     }
@@ -970,13 +974,19 @@ if ($uri === '/api/direct_sales/add' && $method === 'POST') {
                     $row = $stmt->fetch();
                     if ($row) {
                         $tps = max(1, (int)($row['tablets_per_strip'] ?? 1));
-                        $total_cost += ((float)$row['purchase_price'] / $tps) * $qty;
+                        $m_cost = ((float)$row['purchase_price'] / $tps) * $qty;
                         $conn->prepare("UPDATE inventory SET stock = GREATEST(stock - ?, 0) WHERE id=?")->execute([$qty, $row['id']]);
                         sync_stock_item($conn, $row['name'], $row['batch_number'], 'pharmacy');
                     }
                 }
             }
+            
+            $total_cost += $m_cost;
+            $m['cost'] = $m_cost;
+            $m['revenue'] = $rev;
+            $m['profit'] = $rev - $m_cost;
         }
+        unset($m);
 
         $deduct_single = function($item_name) use ($conn, &$total_cost) {
             if (!$item_name || trim($item_name) === '') return;
@@ -1161,51 +1171,24 @@ if ($uri === '/api/direct_sales/list' && $method === 'GET') {
         $params[] = $date_to;
     }
 
-    $stmt = $conn->query("SELECT id, name, purchase_price, tablets_per_strip FROM inventory");
-    $inv_rows = $stmt->fetchAll();
-    $inv_costs = [];
-    $inv_tps = [];
-    $inv_costs_by_id = [];
-    $inv_tps_by_id = [];
-    foreach ($inv_rows as $i) {
-        $id = $i['id'];
-        $name = trim($i['name']);
-        
-        $inv_costs_by_id[$id] = (float)$i['purchase_price'];
-        $inv_tps_by_id[$id] = max(1, (int)$i['tablets_per_strip']);
-
-        if (!isset($inv_costs[$name])) {
-            $inv_costs[$name] = (float)$i['purchase_price'];
-            $inv_tps[$name] = max(1, (int)$i['tablets_per_strip']);
-        }
-    }
-
     $stmt = $conn->prepare("SELECT * FROM direct_sales $where ORDER BY created_at DESC");
     $stmt->execute($params);
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) {
         $meds = json_decode($r['medicines'], true) ?: [];
         foreach ($meds as &$m) {
-            $name = $m['name'] ?? '';
-            $batch_id = $m['batch_id'] ?? '';
             $qty = (float)($m['qty'] ?? 0);
             $ret = (float)($m['returned_qty'] ?? 0);
             $net_qty = $qty - $ret;
-
-            if ($batch_id && isset($inv_costs_by_id[$batch_id])) {
-                $unit_cost = $inv_costs_by_id[$batch_id];
-                $tps = $inv_tps_by_id[$batch_id];
-            } else {
-                $unit_cost = $inv_costs[$name] ?? 0;
-                $tps = max(1, (int)$inv_tps[$name] ?? 1);
-            }
             
-            $actual_unit_cost = $unit_cost / $tps;
+            $base_cost = (float)($m['cost'] ?? 0);
+            $unit_cost = $qty > 0 ? ($base_cost / $qty) : 0;
+            $net_cost = $net_qty * $unit_cost;
 
             $m['net_qty'] = $net_qty;
-            $m['cost'] = $net_qty * $actual_unit_cost;
+            $m['cost'] = $net_cost; // Update cost to reflect net quantity
             $m['revenue'] = (float)($m['amount'] ?? 0) - (float)($m['returned_amount'] ?? 0);
-            $m['profit'] = $m['revenue'] - $m['cost'];
+            $m['profit'] = $m['revenue'] - $net_cost;
         }
         $r['medicines'] = $meds;
     }
