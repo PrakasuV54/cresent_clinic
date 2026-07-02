@@ -1486,6 +1486,8 @@
             return name + suffix;
         }
 
+        window.loadedAdminSections = window.loadedAdminSections || {};
+
         function showAdminSection(id, btn) {
             document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
             const targetId = 'section' + (id.charAt(0).toUpperCase() + id.slice(1));
@@ -1506,12 +1508,30 @@
                 }
             }
 
-            if (id === 'Dashboard') loadAnalytics(null, true);
-            if (id === 'Inventory') loadInventory();
-            if (id === 'Patients') loadPatientsList();
-            if (id === 'Analytics') loadAnalytics();
-            if (id === 'Master') loadMasterData();
-            if (id === 'DirectSales') loadDirectSalesAdmin();
+            if (id === 'Dashboard' && !window.loadedAdminSections['Dashboard']) {
+                loadAnalytics(null, true);
+                window.loadedAdminSections['Dashboard'] = true;
+            }
+            if (id === 'Inventory' && !window.loadedAdminSections['Inventory']) {
+                loadInventory();
+                window.loadedAdminSections['Inventory'] = true;
+            }
+            if (id === 'Patients' && !window.loadedAdminSections['Patients']) {
+                loadPatientsList();
+                window.loadedAdminSections['Patients'] = true;
+            }
+            if (id === 'Analytics' && !window.loadedAdminSections['Analytics']) {
+                loadAnalytics();
+                window.loadedAdminSections['Analytics'] = true;
+            }
+            if (id === 'Master' && !window.loadedAdminSections['Master']) {
+                loadMasterData();
+                window.loadedAdminSections['Master'] = true;
+            }
+            if (id === 'DirectSales' && !window.loadedAdminSections['DirectSales']) {
+                loadDirectSalesAdmin();
+                window.loadedAdminSections['DirectSales'] = true;
+            }
             if (id === 'Agency') {
                 if (typeof switchAgencyTab === 'function') {
                     let activeBtn = document.querySelector('#agencyTabs .btn.active') || document.querySelector('#agencyTabs .btn');
@@ -3806,18 +3826,7 @@
 
         // Init
         document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                // Initial load
-                await Promise.all([
-                    loadInventory(),
-                    loadPatientsList(),
-                    loadAnalytics(null, true)
-                ]);
-            } catch (e) {
-                console.error("Initial load error", e);
-            }
-
-            // Set initial view
+            // Set initial view (this will lazy load the Dashboard on its own)
             showAdminSection('Dashboard', document.getElementById('navDashboard'));
         });
         function openDoctorAnalytics(doctorType) {
