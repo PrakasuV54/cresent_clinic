@@ -1899,15 +1899,15 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
     $start_date = $_GET['start_date'] ?? null;
     $end_date = $_GET['end_date'] ?? null;
     
-    $date_filter = "DATE(created_at) = CURDATE()";
+    $date_filter = "created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY";
     if ($period === 'yesterday') {
-        $date_filter = "DATE(created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+        $date_filter = "created_at >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND created_at < CURDATE()";
     } elseif ($period === 'weekly') {
-        $date_filter = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+        $date_filter = "created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND created_at < CURDATE() + INTERVAL 1 DAY";
     } elseif ($period === 'monthly') {
-        $date_filter = "DATE(created_at) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+        $date_filter = "created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01') AND created_at < CURDATE() + INTERVAL 1 DAY";
     } elseif ($period === 'custom' && $start_date && $end_date) {
-        $date_filter = "date(created_at) >= '$start_date' AND date(created_at) <= '$end_date'";
+        $date_filter = "created_at >= '$start_date 00:00:00' AND created_at <= '$end_date 23:59:59'";
     }
 
     $doctor_type = $_GET['doctor_type'] ?? 'all';
