@@ -3615,6 +3615,7 @@
                 const sales = Array.isArray(res) ? res : (res.data || []);
                 let totalCostSum = 0;
                 let totalRevSum = 0;
+                let totalPayRecvSum = 0;
                 let totalProfitSum = 0;
 
                 let html = `
@@ -3628,6 +3629,7 @@
                                 <th>Quantity</th>
                                 <th style="text-align:right">Purchase Cost</th>
                                 <th style="text-align:right">Selling Price</th>
+                                <th style="text-align:right">Payment Received</th>
                                 <th style="text-align:right">Profit</th>
                             </tr>
                         </thead>
@@ -3635,18 +3637,24 @@
                 `;
 
                 if (sales.length === 0) {
-                    html += `<tr><td colspan="6" style="text-align:center">No direct medicine sales found.</td></tr>`;
+                    html += `<tr><td colspan="7" style="text-align:center">No direct medicine sales found.</td></tr>`;
                 } else {
                     sales.forEach(sale => {
                         const meds = sale.medicines || [];
+                        const saleTotal = parseFloat(sale.total_amount) || 0;
+                        const salePaid = parseFloat(sale.paid_amount) || 0;
+                        const saleBal = parseFloat(sale.balance_amount) || 0;
+                        const payRatio = (salePaid + saleBal > 0) ? (salePaid / (salePaid + saleBal)) : 0;
 
                         if (meds.length === 0) {
                             const cost = parseFloat(sale.cost_amount) || 0;
                             const revenue = parseFloat(sale.total_amount) || 0;
-                            const profit = revenue - cost;
+                            const payRecv = revenue * payRatio;
+                            const profit = payRecv - (cost * payRatio);
 
                             totalCostSum += cost;
                             totalRevSum += revenue;
+                            totalPayRecvSum += payRecv;
                             totalProfitSum += profit;
 
                             const profitColor = profit > 0 ? 'var(--emerald)' : (profit < 0 ? 'var(--danger)' : 'inherit');
@@ -3657,7 +3665,8 @@
                                     <td style="font-size:0.85em; color:var(--text-muted)">Other Fees</td>
                                     <td style="text-align:center">-</td>
                                     <td style="text-align:right">₹${cost.toFixed(2)}</td>
-                                    <td style="text-align:right; font-weight:bold;">₹${revenue.toFixed(2)}</td>
+                                    <td style="text-align:right">₹${revenue.toFixed(2)}</td>
+                                    <td style="text-align:right; font-weight:bold; color:var(--emerald);">₹${payRecv.toFixed(2)}</td>
                                     <td style="text-align:right; color:${profitColor}; font-weight:bold;">₹${profit.toFixed(2)}</td>
                                 </tr>
                             `;
@@ -3676,10 +3685,12 @@
 
                                 const cost = parseFloat(m.cost) || 0;
                                 const revenue = parseFloat(m.revenue) || 0;
-                                const profit = parseFloat(m.profit) || 0;
+                                const payRecv = revenue * payRatio;
+                                const profit = payRecv - (cost * payRatio);
 
                                 totalCostSum += cost;
                                 totalRevSum += revenue;
+                                totalPayRecvSum += payRecv;
                                 totalProfitSum += profit;
 
                                 const profitColor = profit > 0 ? 'var(--emerald)' : (profit < 0 ? 'var(--danger)' : 'inherit');
@@ -3689,7 +3700,8 @@
                                         <td style="font-size:0.85em;">${medNameDisplay}</td>
                                         <td style="text-align:right">${qtyHtml}</td>
                                         <td style="text-align:right">₹${cost.toFixed(2)}</td>
-                                        <td style="text-align:right; font-weight:bold;">₹${revenue.toFixed(2)}</td>
+                                        <td style="text-align:right">₹${revenue.toFixed(2)}</td>
+                                        <td style="text-align:right; font-weight:bold; color:var(--emerald);">₹${payRecv.toFixed(2)}</td>
                                         <td style="text-align:right; color:${profitColor}; font-weight:bold;">₹${profit.toFixed(2)}</td>
                                     </tr>
                                 `;
@@ -3704,7 +3716,8 @@
                             <tr style="background:var(--bg-hover); font-weight:bold;">
                                 <td colspan="2" style="text-align:right;">Totals:</td>
                                 <td style="text-align:right;">₹${totalCostSum.toFixed(2)}</td>
-                                <td style="text-align:right; color:var(--emerald);">₹${totalRevSum.toFixed(2)}</td>
+                                <td style="text-align:right;">₹${totalRevSum.toFixed(2)}</td>
+                                <td style="text-align:right; color:var(--emerald);">₹${totalPayRecvSum.toFixed(2)}</td>
                                 <td style="text-align:right; color:var(--emerald);">₹${totalProfitSum.toFixed(2)}</td>
                             </tr>
                         </tfoot>
@@ -3749,20 +3762,22 @@
                             <th>Quantity</th>
                             <th style="text-align:right">Purchase Cost</th>
                             <th style="text-align:right">Selling Price</th>
+                            <th style="text-align:right">Payment Received</th>
                             <th style="text-align:right">Profit</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
             if (!res.all_medicines || res.all_medicines.length === 0) {
-                medItemsHtml += `<tr><td colspan="5" style="text-align:center">No medicines sold</td></tr>`;
+                medItemsHtml += `<tr><td colspan="6" style="text-align:center">No medicines sold</td></tr>`;
             } else {
-                let sumCost = 0, sumRev = 0, sumProf = 0;
+                let sumCost = 0, sumRev = 0, sumPayRecv = 0, sumProf = 0;
                 res.all_medicines.forEach(med => {
                     sumCost += parseFloat(med.cost) || 0;
                     sumRev += parseFloat(med.revenue) || 0;
-                    sumProf += parseFloat(med.profit) || 0;
-                    const profitColor = med.profit > 0 ? 'var(--emerald)' : (med.profit < 0 ? 'var(--danger)' : 'inherit');
+                    sumPayRecv += parseFloat(med.payment_received) || 0;
+                    sumProf += parseFloat(med.realized_profit) || 0;
+                    const profitColor = med.realized_profit > 0 ? 'var(--emerald)' : (med.realized_profit < 0 ? 'var(--danger)' : 'inherit');
                     medItemsHtml += `
                         <tr>
                             <td>${med.name}</td>
@@ -3771,7 +3786,8 @@
                             </td>
                             <td style="text-align:right; color:var(--text-light)">₹${(med.cost || 0).toFixed(2)}</td>
                             <td style="text-align:right">₹${(med.revenue || 0).toFixed(2)}</td>
-                            <td style="text-align:right; color:${profitColor}; font-weight:bold;">₹${(med.profit || 0).toFixed(2)}</td>
+                            <td style="text-align:right; font-weight:bold; color:var(--emerald);">₹${(med.payment_received || 0).toFixed(2)}</td>
+                            <td style="text-align:right; color:${profitColor}; font-weight:bold;">₹${(med.realized_profit || 0).toFixed(2)}</td>
                         </tr>
                     `;
                 });
@@ -3782,6 +3798,7 @@
                                 <td colspan="2" style="text-align:right;">Totals:</td>
                                 <td style="text-align:right; color:var(--text-light)">₹${sumCost.toFixed(2)}</td>
                                 <td style="text-align:right">₹${sumRev.toFixed(2)}</td>
+                                <td style="text-align:right; color:var(--emerald);">₹${sumPayRecv.toFixed(2)}</td>
                                 <td style="text-align:right; color:var(--emerald);">₹${sumProf.toFixed(2)}</td>
                             </tr>
                         </tfoot>
@@ -3797,6 +3814,8 @@
                             <th>Patient Name</th>
                             <th>Date &amp; Time</th>
                             <th>Doctor</th>
+                            <th>Medicines Sold</th>
+                            <th>Quantity</th>
                             <th style="text-align:right">Total Bill</th>
                             <th style="text-align:right">Payment Amount</th>
                             <th style="text-align:right">Balance Due</th>
@@ -3807,7 +3826,7 @@
             `;
             const txns = res.all_med_transactions || [];
             if (txns.length === 0) {
-                payHtml += `<tr><td colspan="7" style="text-align:center">No prescription transactions found</td></tr>`;
+                payHtml += `<tr><td colspan="9" style="text-align:center">No prescription transactions found</td></tr>`;
             } else {
                 let sumBill = 0, sumPaid = 0, sumBal = 0;
                 txns.forEach(tx => {
@@ -3816,25 +3835,64 @@
                     const bill = parseFloat(tx.total_bill) || 0;
                     const paid = parseFloat(tx.paid_amount) || 0;
                     const bal  = parseFloat(tx.balance_amount) || 0;
+                    const meds = tx.medicines || [];
+                    
                     sumBill += bill; sumPaid += paid; sumBal += bal;
                     const balColor = bal > 0 ? 'var(--danger)' : 'var(--emerald)';
-                    payHtml += `
-                        <tr>
-                            <td><strong>${tx.patient_name}</strong></td>
-                            <td style="font-size:0.85em; color:var(--text-muted);">${dateStr}</td>
-                            <td style="font-size:0.85em;">${tx.doctor_name || '-'}</td>
-                            <td style="text-align:right; font-weight:bold;">₹${bill.toFixed(2)}</td>
-                            <td style="text-align:right; font-weight:bold; color:var(--emerald);">₹${paid.toFixed(2)}</td>
-                            <td style="text-align:right; font-weight:bold; color:${balColor};">${bal > 0 ? '₹' + bal.toFixed(2) : '✓ Cleared'}</td>
-                            <td style="font-size:0.85em;">${tx.payment_mode}</td>
-                        </tr>
-                    `;
+
+                    if (meds.length === 0) {
+                        payHtml += `
+                            <tr>
+                                <td><strong>${tx.patient_name}</strong></td>
+                                <td style="font-size:0.85em; color:var(--text-muted);">${dateStr}</td>
+                                <td style="font-size:0.85em;">${tx.doctor_name || '-'}</td>
+                                <td style="font-size:0.85em; color:var(--text-muted)">Other Fees</td>
+                                <td style="text-align:center">-</td>
+                                <td style="text-align:right; font-weight:bold;">₹${bill.toFixed(2)}</td>
+                                <td style="text-align:right; font-weight:bold; color:var(--emerald);">₹${paid.toFixed(2)}</td>
+                                <td style="text-align:right; font-weight:bold; color:${balColor};">${bal > 0 ? '₹' + bal.toFixed(2) : '✓ Cleared'}</td>
+                                <td style="font-size:0.85em;">${tx.payment_mode}</td>
+                            </tr>
+                        `;
+                    } else {
+                        meds.forEach((m, idx) => {
+                            const ret = parseFloat(m.returned_qty) || 0;
+                            const originalQty = parseFloat(m.qty) || 0;
+                            const qty = originalQty - ret;
+                            let medNameDisplay = m.name;
+                            let qtyHtml = \`\`;
+                            if (ret > 0) {
+                                qtyHtml = \`<div style="font-size:0.85em; color:var(--text-muted);">Purchased: \${originalQty}</div><div style="font-size:0.85em; color:var(--danger);">Returned: -\${ret}</div><div style="font-weight:bold; border-top:1px solid var(--border); margin-top:2px; padding-top:2px;">Net: \${qty}</div>\`;
+                            } else {
+                                qtyHtml = \`\${originalQty}\`;
+                            }
+
+                            const billCell = idx === 0 ? \`₹\${bill.toFixed(2)}\` : '';
+                            const paidCell = idx === 0 ? \`₹\${paid.toFixed(2)}\` : '';
+                            const balCell  = idx === 0 ? (bal > 0 ? \`₹\${bal.toFixed(2)}\` : '✓ Cleared') : '';
+                            const balCellColor = idx === 0 ? balColor : 'inherit';
+
+                            payHtml += `
+                                <tr>
+                                    <td><strong>${tx.patient_name}</strong></td>
+                                    <td style="font-size:0.85em; color:var(--text-muted);">${dateStr}</td>
+                                    <td style="font-size:0.85em;">${tx.doctor_name || '-'}</td>
+                                    <td style="font-size:0.85em;">${medNameDisplay}</td>
+                                    <td style="text-align:center">${qtyHtml}</td>
+                                    <td style="text-align:right; font-weight:bold;">${billCell}</td>
+                                    <td style="text-align:right; font-weight:bold; color:var(--emerald);">${paidCell}</td>
+                                    <td style="text-align:right; font-weight:bold; color:${balCellColor};">${balCell}</td>
+                                    <td style="font-size:0.85em;">${idx === 0 ? tx.payment_mode : ''}</td>
+                                </tr>
+                            `;
+                        });
+                    }
                 });
                 payHtml += `
                         </tbody>
                         <tfoot>
                             <tr style="background:var(--bg-hover); font-weight:bold;">
-                                <td colspan="3" style="text-align:right;">Totals:</td>
+                                <td colspan="5" style="text-align:right;">Totals:</td>
                                 <td style="text-align:right;">₹${sumBill.toFixed(2)}</td>
                                 <td style="text-align:right; color:var(--emerald);">₹${sumPaid.toFixed(2)}</td>
                                 <td style="text-align:right; color:var(--danger);">₹${sumBal.toFixed(2)}</td>
