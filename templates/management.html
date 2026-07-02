@@ -3860,16 +3860,16 @@
                             const originalQty = parseFloat(m.qty) || 0;
                             const qty = originalQty - ret;
                             let medNameDisplay = m.name;
-                            let qtyHtml = \`\`;
+                            let qtyHtml = ``;
                             if (ret > 0) {
-                                qtyHtml = \`<div style="font-size:0.85em; color:var(--text-muted);">Purchased: \${originalQty}</div><div style="font-size:0.85em; color:var(--danger);">Returned: -\${ret}</div><div style="font-weight:bold; border-top:1px solid var(--border); margin-top:2px; padding-top:2px;">Net: \${qty}</div>\`;
+                                qtyHtml = `<div style="font-size:0.85em; color:var(--text-muted);">Purchased: ${originalQty}</div><div style="font-size:0.85em; color:var(--danger);">Returned: -${ret}</div><div style="font-weight:bold; border-top:1px solid var(--border); margin-top:2px; padding-top:2px;">Net: ${qty}</div>`;
                             } else {
-                                qtyHtml = \`\${originalQty}\`;
+                                qtyHtml = `${originalQty}`;
                             }
 
-                            const billCell = idx === 0 ? \`₹\${bill.toFixed(2)}\` : '';
-                            const paidCell = idx === 0 ? \`₹\${paid.toFixed(2)}\` : '';
-                            const balCell  = idx === 0 ? (bal > 0 ? \`₹\${bal.toFixed(2)}\` : '✓ Cleared') : '';
+                            const billCell = idx === 0 ? `₹${bill.toFixed(2)}` : '';
+                            const paidCell = idx === 0 ? `₹${paid.toFixed(2)}` : '';
+                            const balCell  = idx === 0 ? (bal > 0 ? `₹${bal.toFixed(2)}` : '✓ Cleared') : '';
                             const balCellColor = idx === 0 ? balColor : 'inherit';
 
                             payHtml += `
