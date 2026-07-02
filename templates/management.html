@@ -3435,7 +3435,9 @@
                                 <th>Date &amp; Time</th>
                                 <th>Medicines Sold</th>
                                 <th>Quantity</th>
-                                <th style="text-align:right">Selling Amount</th>
+                                <th style="text-align:right">Total Bill</th>
+                                <th style="text-align:right">Payment Amount</th>
+                                <th style="text-align:right">Balance Due</th>
                                 <th>Payment Mode</th>
                             </tr>
                         </thead>
@@ -3443,7 +3445,7 @@
                 `;
 
                 if (sales.length === 0) {
-                    html += `<tr><td colspan="7" style="text-align:center">No direct medicine sales found.</td></tr>`;
+                    html += `<tr><td colspan="8" style="text-align:center">No direct medicine sales found.</td></tr>`;
                 } else {
                     sales.forEach(sale => {
                         const meds = sale.medicines || [];
@@ -3462,22 +3464,32 @@
                         if ((parseFloat(sale.phonepe_amount) || 0) > 0) payModes.push('PhonePe');
                         if ((parseFloat(sale.bank_amount) || 0) > 0) payModes.push('Bank');
                         let modeStr = payModes.join(', ') || 'N/A';
+                        let paidAmountStr = `₹${(parseFloat(sale.paid_amount) || 0).toFixed(2)}`;
 
                         if (meds.length === 0) {
                             // Render a single row if no specific medicines listed (e.g. only injection fee)
-                            const revenue = parseFloat(sale.total_amount) || 0;
-                            totalRevenueSum += revenue;
+                            const totalBill = parseFloat(sale.total_amount) || 0;
+                            const paidAmt = parseFloat(sale.paid_amount) || 0;
+                            const balanceAmt = parseFloat(sale.balance_amount) ?? (totalBill - paidAmt);
+                            totalRevenueSum += totalBill;
+                            const balColor = balanceAmt > 0 ? 'var(--danger)' : 'var(--emerald)';
                             html += `
                                 <tr>
                                     <td><strong>${sale.customer_name}</strong></td>
                                     <td style="font-size:0.85em; color:var(--text-muted);">${dateStr}</td>
                                     <td style="font-size:0.85em; color:var(--text-muted)">Other Fees</td>
                                     <td style="text-align:center">-</td>
-                                    <td style="text-align:right; font-weight:bold;">₹${revenue.toFixed(2)}</td>
+                                    <td style="text-align:right; font-weight:bold;">₹${totalBill.toFixed(2)}</td>
+                                    <td style="text-align:right; font-weight:bold; color:var(--emerald);">₹${paidAmt.toFixed(2)}</td>
+                                    <td style="text-align:right; font-weight:bold; color:${balColor};">${balanceAmt > 0 ? '₹' + balanceAmt.toFixed(2) : '✓ Cleared'}</td>
                                     <td style="font-size:0.85em;">${modeStr}</td>
                                 </tr>
                             `;
                         } else {
+                            const saleTotalBill = parseFloat(sale.total_amount) || 0;
+                            const salePaidAmt = parseFloat(sale.paid_amount) || 0;
+                            const saleBalanceAmt = parseFloat(sale.balance_amount) ?? (saleTotalBill - salePaidAmt);
+                            const saleBalColor = saleBalanceAmt > 0 ? 'var(--danger)' : 'var(--emerald)';
                             meds.forEach((m, idx) => {
                                 const ret = parseFloat(m.returned_qty) || 0;
                                 const originalQty = parseFloat(m.qty) || 0;
@@ -3493,6 +3505,12 @@
                                 const revenue = parseFloat(m.revenue) || 0;
                                 totalRevenueSum += revenue;
 
+                                // Show Bill/Paid/Balance only on first medicine row of each sale
+                                const billCell = idx === 0 ? `₹${saleTotalBill.toFixed(2)}` : '';
+                                const paidCell = idx === 0 ? `₹${salePaidAmt.toFixed(2)}` : '';
+                                const balCell  = idx === 0 ? (saleBalanceAmt > 0 ? `₹${saleBalanceAmt.toFixed(2)}` : '✓ Cleared') : '';
+                                const balCellColor = idx === 0 ? saleBalColor : 'inherit';
+
                                 html += `
                                     <tr>
                                         <td><strong>${sale.customer_name}</strong></td>
@@ -3500,7 +3518,9 @@
                                         <td style="font-size:0.85em;">${medNameDisplay}</td>
                                         <td style="text-align:center">${qtyHtml}</td>
                                         <td style="text-align:right; font-weight:bold;">₹${revenue.toFixed(2)}</td>
-                                        <td style="font-size:0.85em;">${modeStr}</td>
+                                        <td style="text-align:right; font-weight:bold; color:var(--emerald);">${paidCell}</td>
+                                        <td style="text-align:right; font-weight:bold; color:${balCellColor};">${balCell}</td>
+                                        <td style="font-size:0.85em;">${idx === 0 ? modeStr : ''}</td>
                                     </tr>
                                 `;
                             });
@@ -3512,8 +3532,10 @@
                         </tbody>
                         <tfoot>
                             <tr style="background:var(--bg-hover); font-weight:bold;">
-                                <td colspan="4" style="text-align:right;">Total Revenue:</td>
-                                <td style="text-align:right; color:var(--emerald);">₹${totalRevenueSum.toFixed(2)}</td>
+                                <td colspan="4" style="text-align:right;">Total Selling Amount:</td>
+                                <td style="text-align:right; color:var(--emerald);">&#8377;${totalRevenueSum.toFixed(2)}</td>
+                                <td></td>
+                                <td></td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -3673,7 +3695,9 @@
         function showMedicineDetails() {
             if (!window.currentAnalyticsData) return;
             const res = window.currentAnalyticsData;
-            let html = `
+
+            // Tab 1: Per-Medicine Breakdown
+            let medItemsHtml = `
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -3687,7 +3711,7 @@
                     <tbody>
             `;
             if (!res.all_medicines || res.all_medicines.length === 0) {
-                html += `<tr><td colspan="5" style="text-align:center">No medicines sold</td></tr>`;
+                medItemsHtml += `<tr><td colspan="5" style="text-align:center">No medicines sold</td></tr>`;
             } else {
                 let sumCost = 0, sumRev = 0, sumProf = 0;
                 res.all_medicines.forEach(med => {
@@ -3695,7 +3719,7 @@
                     sumRev += parseFloat(med.revenue) || 0;
                     sumProf += parseFloat(med.profit) || 0;
                     const profitColor = med.profit > 0 ? 'var(--emerald)' : (med.profit < 0 ? 'var(--danger)' : 'inherit');
-                    html += `
+                    medItemsHtml += `
                         <tr>
                             <td>${med.name}</td>
                             <td style="text-align:right">
@@ -3707,7 +3731,7 @@
                         </tr>
                     `;
                 });
-                html += `
+                medItemsHtml += `
                         </tbody>
                         <tfoot>
                             <tr style="background:var(--bg-hover); font-weight:bold;">
@@ -3719,11 +3743,93 @@
                         </tfoot>
                 `;
             }
-            html += `
-                </table>
+            medItemsHtml += `</table>`;
+
+            // Tab 2: Payment Details per Prescription Transaction
+            let payHtml = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Patient Name</th>
+                            <th>Date &amp; Time</th>
+                            <th>Doctor</th>
+                            <th style="text-align:right">Total Bill</th>
+                            <th style="text-align:right">Payment Amount</th>
+                            <th style="text-align:right">Balance Due</th>
+                            <th>Payment Mode</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             `;
+            const txns = res.all_med_transactions || [];
+            if (txns.length === 0) {
+                payHtml += `<tr><td colspan="7" style="text-align:center">No prescription transactions found</td></tr>`;
+            } else {
+                let sumBill = 0, sumPaid = 0, sumBal = 0;
+                txns.forEach(tx => {
+                    let dateStr = tx.created_at;
+                    try { const d = new Date(tx.created_at); dateStr = d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch(e){}
+                    const bill = parseFloat(tx.total_bill) || 0;
+                    const paid = parseFloat(tx.paid_amount) || 0;
+                    const bal  = parseFloat(tx.balance_amount) || 0;
+                    sumBill += bill; sumPaid += paid; sumBal += bal;
+                    const balColor = bal > 0 ? 'var(--danger)' : 'var(--emerald)';
+                    payHtml += `
+                        <tr>
+                            <td><strong>${tx.patient_name}</strong></td>
+                            <td style="font-size:0.85em; color:var(--text-muted);">${dateStr}</td>
+                            <td style="font-size:0.85em;">${tx.doctor_name || '-'}</td>
+                            <td style="text-align:right; font-weight:bold;">₹${bill.toFixed(2)}</td>
+                            <td style="text-align:right; font-weight:bold; color:var(--emerald);">₹${paid.toFixed(2)}</td>
+                            <td style="text-align:right; font-weight:bold; color:${balColor};">${bal > 0 ? '₹' + bal.toFixed(2) : '✓ Cleared'}</td>
+                            <td style="font-size:0.85em;">${tx.payment_mode}</td>
+                        </tr>
+                    `;
+                });
+                payHtml += `
+                        </tbody>
+                        <tfoot>
+                            <tr style="background:var(--bg-hover); font-weight:bold;">
+                                <td colspan="3" style="text-align:right;">Totals:</td>
+                                <td style="text-align:right;">₹${sumBill.toFixed(2)}</td>
+                                <td style="text-align:right; color:var(--emerald);">₹${sumPaid.toFixed(2)}</td>
+                                <td style="text-align:right; color:var(--danger);">₹${sumBal.toFixed(2)}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                `;
+            }
+            payHtml += `</table>`;
+
+            // Build tabbed HTML
+            const html = `
+                <div style="margin-bottom:12px; border-bottom:2px solid var(--border); display:flex; gap:0;">
+                    <button id="medTabItems" onclick="switchMedTab('items')" style="padding:8px 18px; border:none; background:var(--primary); color:#fff; cursor:pointer; border-radius:6px 6px 0 0; font-weight:600; font-size:0.95em;">Medicine Items</button>
+                    <button id="medTabPayments" onclick="switchMedTab('payments')" style="padding:8px 18px; border:none; background:var(--bg-hover); color:var(--text-primary); cursor:pointer; border-radius:6px 6px 0 0; font-weight:600; font-size:0.95em;">Payment Details</button>
+                </div>
+                <div id="medTabItemsContent">${medItemsHtml}</div>
+                <div id="medTabPaymentsContent" style="display:none;">${payHtml}</div>
+            `;
+
             document.getElementById('medicineBreakdownModalBody').innerHTML = html;
             openModal('medicineBreakdownModal');
+        }
+
+        function switchMedTab(tab) {
+            const itemsBtn = document.getElementById('medTabItems');
+            const payBtn   = document.getElementById('medTabPayments');
+            const itemsDiv = document.getElementById('medTabItemsContent');
+            const payDiv   = document.getElementById('medTabPaymentsContent');
+            if (!itemsBtn || !payBtn || !itemsDiv || !payDiv) return;
+            if (tab === 'items') {
+                itemsDiv.style.display = ''; payDiv.style.display = 'none';
+                itemsBtn.style.background = 'var(--primary)'; itemsBtn.style.color = '#fff';
+                payBtn.style.background = 'var(--bg-hover)'; payBtn.style.color = 'var(--text-primary)';
+            } else {
+                itemsDiv.style.display = 'none'; payDiv.style.display = '';
+                payBtn.style.background = 'var(--primary)'; payBtn.style.color = '#fff';
+                itemsBtn.style.background = 'var(--bg-hover)'; itemsBtn.style.color = 'var(--text-primary)';
+            }
         }
 
         function showScanDetails() {

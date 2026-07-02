@@ -1395,6 +1395,45 @@ if ($uri === '/api/inventory/add' && $method === 'POST') {
     json_response(['success' => true]);
 }
 
+function backfill_historical_medicine_cost($conn, $med_name, $unit_cost) {
+    if ($unit_cost < 0) return;
+    
+    $med_name_safe = addslashes($med_name);
+    
+    $tables = ['direct_sales', 'prescriptions'];
+    foreach ($tables as $table) {
+        $stmt = $conn->query("SELECT id, medicines, cost_amount, total_amount FROM {$table} WHERE medicines LIKE '%" . $med_name_safe . "%'");
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $meds = json_decode($row['medicines'], true) ?: [];
+            $changed = false;
+            $new_cost_amount = 0;
+            
+            foreach ($meds as &$m) {
+                if (trim(strtolower($m['name'] ?? '')) === trim(strtolower($med_name))) {
+                    // Always recalculate cost using the new unit price (not just when cost==0)
+                    $total_qty = (int)($m['qty'] ?? 0);
+                    $returned_qty = (int)($m['returned_qty'] ?? 0);
+                    $net_qty = $total_qty - $returned_qty;
+                    if ($net_qty > 0 || $total_qty > 0) {
+                        $new_cost = $unit_cost * $total_qty;
+                        if ((float)($m['cost'] ?? 0) !== $new_cost) {
+                            $m['cost'] = $new_cost;
+                            $m['profit'] = (float)($m['revenue'] ?? 0) - $new_cost;
+                            $changed = true;
+                        }
+                    }
+                }
+                $new_cost_amount += (float)($m['cost'] ?? 0);
+            }
+            
+            if ($changed) {
+                $upd = $conn->prepare("UPDATE {$table} SET medicines=?, cost_amount=? WHERE id=?");
+                $upd->execute([json_encode($meds), $new_cost_amount, $row['id']]);
+            }
+        }
+    }
+}
+
 if ($uri === '/api/inventory/update' && $method === 'POST') {
     enforce_api_auth(['pharmacist']);
     $conn = get_db();
@@ -1530,6 +1569,10 @@ if ($uri === '/api/inventory/update' && $method === 'POST') {
 
     // Sync stock to agency items
     sync_stock_item($conn, $name, $batch_number, 'pharmacy');
+
+    // Backfill historical zero-cost sales
+    $actual_unit_cost = ((int)$tablets_per_strip > 0) ? ((float)$purchase_price / (int)$tablets_per_strip) : (float)$purchase_price;
+    backfill_historical_medicine_cost($conn, $name, $actual_unit_cost);
 
     json_response(['success' => true]);
 }
@@ -1955,7 +1998,7 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
     }
 
     $total_income = ($med_rev + $doc_fee + $scan_fee + $other_fees) - $total_discount + $ds_rev;
-    $total_profit = $total_income - ($med_cost + $ds_cost);
+    // Note: $total_profit will be recalculated below using live $medicine_cost after dynamic calculation
 
     // Doctor Stats
     $stmt = $conn->query("SELECT 
@@ -2174,8 +2217,9 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
     
     // Consolidate Medicine + Injection + IV + UPT
     $medicine_revenue = $med_rev + $inj_rev + $iv_rev + $upt_rev;
-    // med_cost already accurately includes all pharmacy costs from cost_amount!
-    $medicine_cost = $med_cost; 
+    // Use dynamically calculated cost from current inventory prices for accurate profit
+    // $true_med_cost is calculated from current purchase_price in inventory (live, not stale)
+    $medicine_cost = ($true_med_cost > 0) ? $true_med_cost : $med_cost;
     $medicine_profit = $medicine_revenue - $medicine_cost;
     
     // Treatment Fee = UPT (Folded into medicine as requested)
@@ -2219,6 +2263,9 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
         if ($amt > 0) $financial[$label] = ($financial[$label] ?? 0) + $amt;
     }
 
+    // Recalculate total_profit using dynamic medicine_cost (computed after $true_med_cost is ready)
+    $total_profit = $total_income - ($medicine_cost + $ds_cost);
+
     // Fetch individual scan records for details modal
     $pr_date_filter = str_replace('created_at', 'pr.created_at', $date_filter);
     $pr_doc_filter = str_replace('doctor_type', 'pr.doctor_type', $doc_filter);
@@ -2244,6 +2291,36 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
             'scan_date' => $srow['scan_date'],
             'payment_mode' => empty($pmode) ? '-' : implode(', ', $pmode),
             'collected' => (float)$srow['paid_amount']
+        ];
+    }
+
+    // Fetch prescription medicine transactions for Revenue Details popup (payment info)
+    $med_tx_stmt = $conn->query("SELECT p.name as patient_name, p.patient_id,
+               pr.id as presc_id, pr.total_amount, pr.paid_amount, pr.balance_amount,
+               pr.cash_amount, pr.gpay_amount, pr.phonepe_amount, pr.created_at,
+               pr.doctor_name
+        FROM prescriptions pr
+        JOIN patients p ON pr.patient_id = p.id
+        WHERE pr.status='dispensed' AND pr.total_amount > 0 AND $pr_date_filter $pr_doc_filter
+        ORDER BY pr.id DESC");
+    $all_med_transactions = [];
+    foreach ($med_tx_stmt->fetchAll(PDO::FETCH_ASSOC) as $tx) {
+        $pmodes = [];
+        if ((float)($tx['cash_amount'] ?? 0) > 0) $pmodes[] = 'Cash';
+        if ((float)($tx['gpay_amount'] ?? 0) > 0 || (float)($tx['phonepe_amount'] ?? 0) > 0) $pmodes[] = 'UPI';
+        $total_bill = (float)$tx['total_amount'];
+        $paid_amt   = (float)$tx['paid_amount'];
+        $balance    = (float)$tx['balance_amount'];
+        $all_med_transactions[] = [
+            'patient_name'   => $tx['patient_name'],
+            'patient_id'     => $tx['patient_id'],
+            'presc_id'       => $tx['presc_id'],
+            'doctor_name'    => $tx['doctor_name'] ?? '',
+            'total_bill'     => $total_bill,
+            'paid_amount'    => $paid_amt,
+            'balance_amount' => $balance,
+            'payment_mode'   => empty($pmodes) ? 'N/A' : implode(', ', $pmodes),
+            'created_at'     => $tx['created_at']
         ];
     }
 
@@ -2280,6 +2357,7 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
         'financial' => $financial,
         'doctor_stats' => $doctor_stats,
         'all_medicines' => $all_medicines,
+        'all_med_transactions' => $all_med_transactions,
         'total_fees_all' => (float)($pr['total_fees_all'] ?? 0)
     ]);
 }
