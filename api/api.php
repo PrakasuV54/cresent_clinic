@@ -1728,29 +1728,55 @@ if ($uri === '/api/scans/all' && $method === 'GET') {
 if ($uri === '/api/patients/all' && $method === 'GET') {
     enforce_api_auth(['receptionist']);
     $conn = get_db();
-    $stmt = $conn->query("SELECT p.name, p.phone, MAX(p.age) as age, MAX(p.gender) as gender, MAX(p.address) as address,
-               COUNT(pr.id) as total_visits, 
-               SUM(pr.paid_amount) as total_paid,
-               SUM(pr.balance_amount) as total_balance,
-               SUM(pr.paid_amount + pr.balance_amount) as total_bill,
-               MAX(p.id) as id,
-               MAX(p.patient_id) as patient_id,
-               COALESCE(
-                   (SELECT doctor_id FROM prescriptions WHERE patient_id IN (SELECT id FROM patients WHERE name=p.name AND phone=p.phone) ORDER BY created_at DESC LIMIT 1),
-                   MAX(p.doctor_id)
-               ) as doctor_id,
-               COALESCE(
-                   (SELECT doctor_name FROM prescriptions WHERE patient_id IN (SELECT id FROM patients WHERE name=p.name AND phone=p.phone) ORDER BY created_at DESC LIMIT 1),
-                   MAX(p.doctor_name)
-               ) as last_doctor_name,
-               COALESCE(
-                   (SELECT created_at FROM prescriptions WHERE patient_id IN (SELECT id FROM patients WHERE name=p.name AND phone=p.phone) ORDER BY created_at DESC LIMIT 1),
-                   MAX(p.created_at)
-               ) as created_at
-        FROM patients p
-        LEFT JOIN prescriptions pr ON p.id = pr.patient_id
-        GROUP BY p.name, p.phone
-        ORDER BY MAX(p.id) DESC");
+    $stmt = $conn->query("SELECT 
+            main.name, 
+            main.phone, 
+            main.age, 
+            main.gender, 
+            main.address,
+            main.total_visits, 
+            main.total_paid,
+            main.total_balance,
+            main.total_bill,
+            main.id,
+            main.patient_id,
+            COALESCE(latest_pr.doctor_id, main.fallback_doctor_id) as doctor_id,
+            COALESCE(latest_pr.doctor_name, main.fallback_doctor_name) as last_doctor_name,
+            COALESCE(latest_pr.created_at, main.fallback_created_at) as created_at
+        FROM (
+            SELECT 
+                p.name, 
+                p.phone, 
+                MAX(p.age) as age, 
+                MAX(p.gender) as gender, 
+                MAX(p.address) as address,
+                COUNT(pr.id) as total_visits, 
+                SUM(pr.paid_amount) as total_paid,
+                SUM(pr.balance_amount) as total_balance,
+                SUM(pr.paid_amount + pr.balance_amount) as total_bill,
+                MAX(p.id) as id,
+                MAX(p.patient_id) as patient_id,
+                MAX(p.doctor_id) as fallback_doctor_id,
+                MAX(p.doctor_name) as fallback_doctor_name,
+                MAX(p.created_at) as fallback_created_at
+            FROM patients p
+            LEFT JOIN prescriptions pr ON p.id = pr.patient_id
+            GROUP BY p.name, p.phone
+        ) main
+        LEFT JOIN (
+            SELECT * FROM (
+                SELECT 
+                    p2.name, 
+                    p2.phone, 
+                    pr2.doctor_id, 
+                    pr2.doctor_name, 
+                    pr2.created_at,
+                    ROW_NUMBER() OVER (PARTITION BY p2.name, p2.phone ORDER BY pr2.created_at DESC) as rn
+                FROM patients p2
+                JOIN prescriptions pr2 ON p2.id = pr2.patient_id
+            ) ranked WHERE rn = 1
+        ) latest_pr ON main.name = latest_pr.name AND main.phone = latest_pr.phone
+        ORDER BY main.id DESC");
     json_response($stmt->fetchAll());
 }
 
