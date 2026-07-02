@@ -3316,7 +3316,15 @@
 
                         <tr><td>Scan Fees Total</td><td style="text-align:right">₹${res.splits.scan_profit.toFixed(2)}</td></tr>
                         ${(res.total_discount > 0) ? `<tr><td style="color:var(--danger)">Total Discounts (-)</td><td style="text-align:right; color:var(--danger)">-₹${res.total_discount.toFixed(2)}</td></tr>` : ''}
-                        <tr style="font-weight:bold; background:var(--bg-hover)"><td>Total Revenue</td><td style="text-align:r        function showProfitDetails() {
+                        <tr style="font-weight:bold; background:var(--bg-hover)"><td>Total Revenue</td><td style="text-align:right">₹${res.total_income.toFixed(2)}</td></tr>
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('revenueModalBody').innerHTML = html;
+            openModal('revenueModal');
+        }
+
+        function showProfitDetails() {
             if (!window.currentAnalyticsData) return;
             const res = window.currentAnalyticsData;
             const R = res.realized || {};
