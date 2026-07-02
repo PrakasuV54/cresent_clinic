@@ -3316,26 +3316,18 @@
 
                         <tr><td>Scan Fees Total</td><td style="text-align:right">₹${res.splits.scan_profit.toFixed(2)}</td></tr>
                         ${(res.total_discount > 0) ? `<tr><td style="color:var(--danger)">Total Discounts (-)</td><td style="text-align:right; color:var(--danger)">-₹${res.total_discount.toFixed(2)}</td></tr>` : ''}
-                        <tr style="font-weight:bold; background:var(--bg-hover)"><td>Total Revenue</td><td style="text-align:right">₹${res.total_income.toFixed(2)}</td></tr>
-                    </tbody>
-                </table>
-            `;
-            document.getElementById('revenueModalBody').innerHTML = html;
-            openModal('revenueModal');
-        }
-
-        function showProfitDetails() {
+                        <tr style="font-weight:bold; background:var(--bg-hover)"><td>Total Revenue</td><td style="text-align:r        function showProfitDetails() {
             if (!window.currentAnalyticsData) return;
             const res = window.currentAnalyticsData;
             const R = res.realized || {};
 
-            // Gross (billed) values
+            // Gross (billed) values — unchanged
             const rxBilled    = res.splits.medicine_revenue || 0;
             const rxCost      = res.splits.medicine_cost || 0;
             const dsBilled    = res.splits.direct_medicine_revenue || 0;
             const dsCost      = res.splits.direct_medicine_cost || 0;
 
-            // Realized (payment-based) values
+            // Realized (payment-based) values — unchanged
             const rxPaid      = R.rx_paid || 0;
             const rxBalance   = R.rx_balance || 0;
             const rxRealCost  = R.rx_cost || 0;
@@ -3346,92 +3338,103 @@
             const dsRealized  = R.ds_profit || 0;
             const totalRealized = R.profit || 0;
 
-            const row = (label, val, color='') => `<div style="display:flex; justify-content:space-between; margin-bottom:5px; ${color ? 'color:'+color+';' : ''}">
-                <span>${label}</span><strong>₹${parseFloat(val||0).toFixed(2)}</strong></div>`;
+            const totProfColor = totalRealized >= 0 ? 'var(--emerald)' : 'var(--danger)';
+            const rxBalColor   = rxBalance  > 0 ? 'var(--danger)' : 'var(--emerald)';
+            const dsBalColor   = dsBalance  > 0 ? 'var(--danger)' : 'var(--emerald)';
 
-            const section = (title, billed, cost, paid, balance, realProfit) => {
-                const balColor  = balance > 0 ? 'var(--danger)' : 'var(--emerald)';
-                const profColor = realProfit >= 0 ? 'var(--emerald)' : 'var(--danger)';
-                return `<div style="background:var(--bg-hover); padding:14px; border-radius:8px; margin-bottom:14px;">
-                    <h4 style="margin:0 0 10px; color:var(--text-primary); border-bottom:1px solid var(--border); padding-bottom:5px;">${title}</h4>
-                    ${row('Total Bill (Billed)', billed)}
-                    ${row('Less: Purchase Cost', '-'+parseFloat(cost||0).toFixed(2), 'var(--danger)')}
-                    ${row('Gross Profit (if fully paid)', parseFloat(billed||0)-parseFloat(cost||0))}
-                    <div style="border-top:1px dashed var(--border); margin:8px 0;"></div>
-                    ${row('💰 Payment Received', paid, 'var(--emerald)')}
-                    ${row('⏳ Balance Due', balance, balColor)}
-                    ${row('• Realized Purchase Cost', realCost => '-'+parseFloat(realCost||0).toFixed(2), 'var(--text-muted)')}
-                    <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:2px solid var(--border); font-weight:bold; color:${profColor};">
-                        <span>✓ Realized Profit</span><strong>₹${parseFloat(realProfit||0).toFixed(2)}</strong>
+            // Helper: build one summary card with hidden accordion details
+            const profitCard = (id, title, billed, cost, paid, balance, realCost, realized) => {
+                const profColor = realized >= 0 ? 'var(--emerald)' : 'var(--danger)';
+                const balColor  = balance  > 0 ? 'var(--danger)' : 'var(--emerald)';
+                return `
+                <div style="background:var(--bg-hover); border-radius:8px; margin-bottom:12px; overflow:hidden;">
+                    <div style="padding:13px 14px;">
+                        <div style="font-weight:600; color:var(--text-primary); margin-bottom:11px; font-size:0.97em;">${title}</div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                            <span style="color:var(--text-muted);">Total Billed</span>
+                            <strong>&#8377;${billed.toFixed(2)}</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--danger);">
+                            <span>Purchase Cost</span>
+                            <strong>-&#8377;${cost.toFixed(2)}</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:2px solid var(--border); font-weight:bold; color:${profColor};">
+                            <span>Realized Profit</span>
+                            <strong>&#8377;${realized.toFixed(2)}</strong>
+                        </div>
+                    </div>
+                    <!-- View Details accordion toggle -->
+                    <div onclick="toggleProfitAccordion('${id}')"
+                         style="display:flex; align-items:center; justify-content:center; gap:5px; padding:7px; border-top:1px solid var(--border); cursor:pointer; color:var(--primary); font-size:0.85em; font-weight:500; user-select:none;">
+                        <span id="${id}-label">View Details</span>
+                        <svg id="${id}-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.2s;"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <!-- Accordion body -->
+                    <div id="${id}-body" style="display:none; padding:10px 14px 13px; border-top:1px dashed var(--border); background:var(--bg-card);">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:var(--emerald);">
+                            <span>Payment Received</span><strong>&#8377;${paid.toFixed(2)}</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:${balColor};">
+                            <span>Balance Due</span><strong>&#8377;${balance.toFixed(2)}</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:2px; color:var(--text-muted); font-size:0.88em;">
+                            <span>Realized Purchase Cost</span><strong>-&#8377;${realCost.toFixed(2)}</strong>
+                        </div>
                     </div>
                 </div>`;
             };
 
-            // Build cleaner sections manually for proper cost injection
-            const rxBalColor  = rxBalance  > 0 ? 'var(--danger)' : 'var(--emerald)';
-            const dsBalColor  = dsBalance  > 0 ? 'var(--danger)' : 'var(--emerald)';
-            const totProfColor = totalRealized >= 0 ? 'var(--emerald)' : 'var(--danger)';
-
             const html = `
-                <div style="background:var(--bg-hover); padding:14px; border-radius:8px; margin-bottom:12px;">
-                    <h4 style="margin:0 0 10px; color:var(--text-primary); border-bottom:1px solid var(--border); padding-bottom:5px;">Doctor Consultation Medicine Sales</h4>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Total Billed</span><strong>₹${rxBilled.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--danger);"><span>Purchase Cost</span><strong>-₹${rxCost.toFixed(2)}</strong></div>
-                    <div style="border-top:1px dashed var(--border); margin:8px 0;"></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--emerald);"><span>💰 Payment Received</span><strong>₹${rxPaid.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:${rxBalColor};"><span>⏳ Balance Due</span><strong>₹${rxBalance.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--text-muted); font-size:0.9em;"><span>Realized Purchase Cost</span><strong>-₹${rxRealCost.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:2px solid var(--border); font-weight:bold; color:${rxRealized>=0?'var(--emerald)':'var(--danger)'};"><span>✓ Realized Profit</span><strong>₹${rxRealized.toFixed(2)}</strong></div>
-                </div>
+                ${profitCard('rx-detail', 'Doctor Consultation Medicine Sales', rxBilled, rxCost, rxPaid, rxBalance, rxRealCost, rxRealized)}
+                ${profitCard('ds-detail', 'Direct Medicine Sales', dsBilled, dsCost, dsPaid, dsBalance, dsRealCost, dsRealized)}
 
-                <div style="background:var(--bg-hover); padding:14px; border-radius:8px; margin-bottom:12px;">
-                    <h4 style="margin:0 0 10px; color:var(--text-primary); border-bottom:1px solid var(--border); padding-bottom:5px;">Direct Medicine Sales</h4>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Total Billed</span><strong>₹${dsBilled.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--danger);"><span>Purchase Cost</span><strong>-₹${dsCost.toFixed(2)}</strong></div>
-                    <div style="border-top:1px dashed var(--border); margin:8px 0;"></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--emerald);"><span>💰 Payment Received</span><strong>₹${dsPaid.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:${dsBalColor};"><span>⏳ Balance Due</span><strong>₹${dsBalance.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--text-muted); font-size:0.9em;"><span>Realized Purchase Cost</span><strong>-₹${dsRealCost.toFixed(2)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:2px solid var(--border); font-weight:bold; color:${dsRealized>=0?'var(--emerald)':'var(--danger)'};"><span>✓ Realized Profit</span><strong>₹${dsRealized.toFixed(2)}</strong></div>
-                </div>
-
-                <div style="font-size:0.82em; color:var(--text-light); font-style:italic; margin-bottom:10px;">
-                    * Realized Profit = Payment Received minus proportional purchase cost. Unpaid balances are excluded.
-                </div>
-
-                <div style="display:flex; justify-content:space-between; padding:12px 14px; border-radius:8px; font-weight:bold; font-size:1.15em; background:var(--bg-card); border:2px solid ${totProfColor}; color:${totProfColor};">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:11px 14px; border-radius:8px; font-weight:bold; font-size:1.05em; background:var(--bg-hover); border-left:4px solid ${totProfColor}; color:${totProfColor}; margin-bottom:16px;">
                     <span>Total Realized Profit</span>
-                    <span>₹${totalRealized.toFixed(2)}</span>
+                    <span>&#8377;${totalRealized.toFixed(2)}</span>
                 </div>
 
-                <h4 style="margin:16px 0 8px;">Category Breakdown</h4>
+                <h4 style="margin:0 0 8px; font-size:0.95em; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Profit Breakdown</h4>
                 <table class="data-table">
-                    <thead><tr><th>Category</th><th style="text-align:right">Billed</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th style="text-align:right">Realized Profit</th></tr></thead>
                     <tbody>
-                        <tr><td>Doctor Fees</td><td style="text-align:right">₹${res.splits.doctor_profit.toFixed(2)}</td><td style="text-align:right; color:var(--emerald);">₹${(R.rx_doc_fee||0).toFixed(2)}</td><td style="text-align:right; color:var(--danger);">-</td><td style="text-align:right; color:var(--emerald);">₹${(R.rx_doc_fee||0).toFixed(2)}</td></tr>
+                        <tr><td>Doctor Fees</td><td style="text-align:right; color:var(--emerald);">&#8377;${res.splits.doctor_profit.toFixed(2)}</td></tr>
                         <tr>
-                            <td colspan="5" style="padding:0;">
-                                <div class="split-card clickable-card" onclick="showMedicineDetails()" style="border-bottom:1px solid var(--border); padding:10px 12px; border-radius:0; display:flex; justify-content:space-between;">
-                                    <span style="display:flex; align-items:center; gap:4px; font-weight:600;">Med. Sales Details <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
-                                    <span style="color:var(--emerald);">Realized: ₹${rxRealized.toFixed(2)}</span>
+                            <td colspan="2" style="padding:0;">
+                                <div class="split-card clickable-card" onclick="showMedicineDetails()" style="border-bottom:1px solid var(--border); padding:12px; border-radius:0;">
+                                    <span class="split-label" style="display:flex; align-items:center; gap:4px; font-weight:600;">Doctor Consultation Medicine <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+                                    <span class="split-val" style="color:var(--emerald);">&#8377;${rxRealized.toFixed(2)}</span>
                                 </div>
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="5" style="padding:0;">
-                                <div class="split-card clickable-card" onclick="showDirectSalesProfitBreakdown()" style="border-bottom:1px solid var(--border); padding:10px 12px; border-radius:0; display:flex; justify-content:space-between;">
-                                    <span style="display:flex; align-items:center; gap:4px; font-weight:600;">Direct Sales Details <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
-                                    <span style="color:var(--emerald);">Realized: ₹${dsRealized.toFixed(2)}</span>
+                            <td colspan="2" style="padding:0;">
+                                <div class="split-card clickable-card" onclick="showDirectSalesProfitBreakdown()" style="border-bottom:1px solid var(--border); padding:12px; border-radius:0;">
+                                    <span class="split-label" style="display:flex; align-items:center; gap:4px; font-weight:600;">Direct Medicine Sales <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+                                    <span class="split-val" style="color:var(--emerald);">&#8377;${dsRealized.toFixed(2)}</span>
                                 </div>
                             </td>
                         </tr>
-                        <tr><td>Scan Fees</td><td style="text-align:right">₹${res.splits.scan_profit.toFixed(2)}</td><td style="text-align:right; color:var(--emerald);">₹${(R.rx_scan_fee||0).toFixed(2)}</td><td style="text-align:right; color:var(--danger);">-</td><td style="text-align:right; color:var(--emerald);">₹${(R.rx_scan_fee||0).toFixed(2)}</td></tr>
+                        <tr><td>Scan Fees</td><td style="text-align:right; color:var(--emerald);">&#8377;${res.splits.scan_profit.toFixed(2)}</td></tr>
                     </tbody>
                 </table>
+                <div style="font-size:0.78em; color:var(--text-light); font-style:italic; margin-top:10px;">
+                    * Realized Profit = Payment received minus proportional purchase cost.
+                </div>
             `;
             document.getElementById('profitModalBody').innerHTML = html;
             openModal('profitModal');
         }
+
+        function toggleProfitAccordion(id) {
+            const body  = document.getElementById(id + '-body');
+            const arrow = document.getElementById(id + '-arrow');
+            const label = document.getElementById(id + '-label');
+            if (!body) return;
+            const open = body.style.display === 'none' || body.style.display === '';
+            body.style.display  = open ? 'block' : 'none';
+            arrow.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+            label.textContent   = open ? 'Hide Details' : 'View Details';
+        }
+
 
         function showDirectSalesRevenueBreakdown() {
             if (!window.currentAnalyticsData) return;
