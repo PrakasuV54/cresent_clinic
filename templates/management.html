@@ -10,8 +10,20 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css?v=34">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        // Dynamic script loader for heavy libraries
+        window.loadedScripts = {};
+        window.loadScript = function(url) {
+            if (window.loadedScripts[url]) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = () => { window.loadedScripts[url] = true; resolve(); };
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        };
+
         // Global fix for toFixed failing on string types returned from database
         if (!String.prototype.toFixed) {
             String.prototype.toFixed = function (precision) {
@@ -1440,19 +1452,11 @@
 
     <!-- Include SweetAlert2 for nice prompts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Include SheetJS for native XLSX export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Include html2canvas for JPG Generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- Include html2pdf for Silent PDF Generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Include PDF.js for PDF import parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-    <script src="/static/js/script_app.js?v=46"></script>
-    <script src="/static/js/reports.js?v=5"></script>
-    <script src="/static/js/agency.js?v=49"></script>
-    <script src="/static/js/inventory.js?v=3"></script>
+    <script src="/static/js/script_app.js?v=46" defer></script>
+    <script src="/static/js/reports.js?v=5" defer></script>
+    <script src="/static/js/agency.js?v=49" defer></script>
+    <script src="/static/js/inventory.js?v=3" defer></script>
     <script>
         let allPatients = [];
         let allScans = [];
@@ -1779,7 +1783,8 @@
             } catch (e) { console.error(e); }
         }
 
-        function renderCharts(splits) {
+        async function renderCharts(splits) {
+            await window.loadScript('https://cdn.jsdelivr.net/npm/chart.js');
             const barCtx = document.getElementById('barChart').getContext('2d');
             const pieCtx = document.getElementById('pieChart').getContext('2d');
 

@@ -2236,6 +2236,13 @@ window.handleGenericImportPdf = function(input) {
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
+            if (typeof window.loadScript === 'function') {
+                await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js');
+            }
+            if (typeof window['pdfjs-dist/build/pdf'] === 'undefined') {
+                alert("PDF library failed to load.");
+                return;
+            }
             const pdfjsLib = window['pdfjs-dist/build/pdf'];
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
             

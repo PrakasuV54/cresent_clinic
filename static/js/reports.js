@@ -344,9 +344,12 @@ async function exportReport(format) {
     }
 }
 
-function generateExcelReport(data, period, start, end) {
+async function generateExcelReport(data, period, start, end) {
+    if (typeof window.loadScript === 'function') {
+        await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    }
     if (typeof XLSX === 'undefined') {
-        alert("Excel export library is loading. Please try again in a few seconds.");
+        alert("Excel export library failed to load.");
         return;
     }
 
@@ -877,8 +880,12 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
         setTimeout(async () => {
             const wrapper = tempDiv.querySelector('.print-wrapper');
             if (format === 'whatsapp') {
+                if (typeof window.loadScript === 'function') {
+                    await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                    await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+                }
                 if (typeof html2pdf === 'undefined') {
-                    alert("html2pdf is loading, please try again.");
+                    alert("PDF library failed to load.");
                     tempDiv.remove();
                     return;
                 }
@@ -926,8 +933,12 @@ function generatePrintableReport(data, period, start, end, format = 'print') {
                     tempDiv.remove();
                 });
             } else if (format === 'pdf') {
+                if (typeof window.loadScript === 'function') {
+                    await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                    await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+                }
                 if (typeof html2pdf === 'undefined') {
-                    alert("html2pdf is loading, please try again.");
+                    alert("PDF library failed to load.");
                     tempDiv.remove();
                     return;
                 }
