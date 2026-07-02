@@ -1454,7 +1454,7 @@
     <!-- Include SweetAlert2 for nice prompts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <script src="/static/js/script_app.js?v=46" defer></script>
+    <script src="/static/js/script_app.js?v=47" defer></script>
     <script src="/static/js/reports.js?v=5" defer></script>
     <script src="/static/js/agency.js?v=49" defer></script>
     <script src="/static/js/inventory.js?v=3" defer></script>
@@ -3125,7 +3125,7 @@
         }
 
         function toggleUserTypeFields() {
-            const role = document.getElementById('userRole').value;
+            const role = (document.getElementById('userRole').value || '').trim().toLowerCase();
             document.getElementById('docDynamicFields').style.display = (role === 'doctor') ? 'grid' : 'none';
             document.getElementById('docRegGroup').style.display = (role === 'doctor') ? 'block' : 'none';
             document.getElementById('docDetailsGroup').style.display = (role === 'doctor') ? 'block' : 'none';
@@ -3160,7 +3160,8 @@
         }
 
         function editUser(u) {
-            openUserModal(u.role);
+            const normalizedRole = (u.role || '').trim().toLowerCase();
+            openUserModal(normalizedRole);
             document.getElementById('userId').value = u.id;
             document.getElementById('userUsername').value = u.username;
             document.getElementById('userPassword').value = u.password || '';
