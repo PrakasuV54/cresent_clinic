@@ -1520,6 +1520,9 @@ async function saveAutoBackupSettings() {
     try {
         const response = await fetch('/reports_api.php?action=save_backup_settings', {
             method: 'POST',
+            headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
             body: formData
         });
         const resData = await response.json();

@@ -186,6 +186,13 @@ if (!String.prototype.toFixed) {
             opts.headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
             opts.body = JSON.stringify(opts.body);
         }
+        
+        if (reqMethod !== 'GET') {
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            if (csrfMeta) {
+                opts.headers = { 'X-CSRF-Token': csrfMeta.getAttribute('content'), ...(opts.headers || {}) };
+            }
+        }
         const res = await fetch(url, opts);
         if (!res.ok) {
             let errMsg = `HTTP ${res.status}`;

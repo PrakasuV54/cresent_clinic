@@ -21,6 +21,32 @@ if (session_status() === PHP_SESSION_NONE) {
 
     session_set_save_handler(new DatabaseSessionHandler(), true);
     session_start();
+    
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+}
+
+// Global CSRF Protection for state-changing requests
+if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH', 'DELETE'])) {
+    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if ($uri !== '/login' && $uri !== '/') {
+        $client_token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        if (empty($client_token) && isset($_POST['csrf_token'])) {
+            $client_token = $_POST['csrf_token'];
+        }
+        
+        if (empty($client_token) || !hash_equals($_SESSION['csrf_token'] ?? '', $client_token)) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Invalid or missing CSRF token']);
+            exit;
+        }
+    }
+}
+
+function csrf_token() {
+    return $_SESSION['csrf_token'] ?? '';
 }
 
 function login_required($role = null) {
