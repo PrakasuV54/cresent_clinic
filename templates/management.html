@@ -2814,8 +2814,8 @@
             if (tab === 'doctors' || tab === 'staff') {
                 const users = await api('/api/management/users');
                 const userData = users.users || users;
-                const doctors = userData.filter(u => u.role === 'doctor');
-                const staff = userData.filter(u => u.role !== 'doctor');
+                const doctors = userData.filter(u => (u.role || '').trim().toLowerCase() === 'doctor');
+                const staff = userData.filter(u => (u.role || '').trim().toLowerCase() !== 'doctor');
 
                 document.getElementById('masterDoctorsBody').innerHTML = doctors.map(u => `
                     <tr>

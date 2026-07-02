@@ -460,7 +460,10 @@ if (!String.prototype.toFixed) {
                 // Modified api utility usage: we need to handle non-ok manually to parse custom messages
                 const resRaw = await fetch('/api/register_patient', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    },
                     body: JSON.stringify(data)
                 });
                 const res = await resRaw.json();

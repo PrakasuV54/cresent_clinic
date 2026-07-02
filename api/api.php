@@ -2534,7 +2534,13 @@ if ($uri === '/api/management/user/save' && $method === 'POST') {
     $id = $_POST['id'] ?? null;
     $username = $_POST['username'];
     $password_raw = $_POST['password'] ?? '';
-    $role = $_POST['role'];
+    $role = trim($_POST['role'] ?? '');
+    
+    // Normalize core roles to lowercase to prevent JS strict equality bugs
+    $lower_role = strtolower($role);
+    if (in_array($lower_role, ['doctor', 'receptionist', 'pharmacist', 'management', 'monitor'])) {
+        $role = $lower_role;
+    }
     
     // Normalize doctor_type and token_prefix
     $doctor_type = $_POST['doctor_type'] ?? null;
