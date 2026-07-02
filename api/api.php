@@ -1963,7 +1963,11 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
             SUM(paid_amount) as paid_amount,
             SUM(balance_amount) as total_balance,
             SUM(consultation_fee + scan_fee + injection_cost + iv_cost + upt_cost) as total_fees_all,
-            SUM((total_amount + consultation_fee + scan_fee + injection_cost + iv_cost + upt_cost) * (IFNULL(discount_percent, 0) / 100.0)) as total_discount
+            SUM((total_amount + consultation_fee + scan_fee + injection_cost + iv_cost + upt_cost) * (IFNULL(discount_percent, 0) / 100.0)) as total_discount,
+            SUM(paid_amount * cost_amount / NULLIF(paid_amount + balance_amount, 0)) as realized_rx_cost,
+            SUM(paid_amount * total_amount / NULLIF(paid_amount + balance_amount, 0)) as realized_med_revenue,
+            SUM(paid_amount * consultation_fee / NULLIF(paid_amount + balance_amount, 0)) as realized_doc_fee,
+            SUM(paid_amount * scan_fee / NULLIF(paid_amount + balance_amount, 0)) as realized_scan_fee
         FROM prescriptions 
         WHERE status='dispensed' AND $date_filter $doc_filter");
     $pr = $stmt->fetch();
@@ -1988,7 +1992,8 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
                 SUM(phonepe_amount) as ds_phonepe,
                 SUM(bank_amount) as ds_bank,
                 SUM(paid_amount) as ds_paid,
-                SUM(balance_amount) as ds_balance
+                SUM(balance_amount) as ds_balance,
+                SUM(paid_amount * cost_amount / NULLIF(paid_amount + balance_amount, 0)) as ds_realized_cost
             FROM direct_sales
             WHERE $date_filter");
         $ds_pr = $ds_stmt->fetch() ?: [];
@@ -1999,6 +2004,28 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
 
     $total_income = ($med_rev + $doc_fee + $scan_fee + $other_fees) - $total_discount + $ds_rev;
     // Note: $total_profit will be recalculated below using live $medicine_cost after dynamic calculation
+
+    // REALIZED PROFIT (cash-basis): profit based on actual payments received
+    // Formula: realized_profit = paid_amount - (cost * paid_amount / (paid_amount + balance_amount))
+    // This means: unpaid invoices = ₹0 profit; partial payments = proportional profit
+    $rx_paid          = (float)($pr['paid_amount'] ?? 0);
+    $rx_balance       = (float)($pr['total_balance'] ?? 0);
+    $realized_rx_cost = (float)($pr['realized_rx_cost'] ?? 0);
+    $realized_med_rev = (float)($pr['realized_med_revenue'] ?? 0);
+    $realized_doc_fee = (float)($pr['realized_doc_fee'] ?? 0);
+    $realized_scan_fee= (float)($pr['realized_scan_fee'] ?? 0);
+
+    $ds_paid          = (float)($ds_pr['ds_paid'] ?? 0);
+    $ds_balance_amt   = (float)($ds_pr['ds_balance'] ?? 0);
+    $ds_realized_cost = (float)($ds_pr['ds_realized_cost'] ?? 0);
+
+    // Realized profit from prescriptions = total paid - proportional medicine cost
+    $realized_rx_profit = $rx_paid - $realized_rx_cost;
+    // Realized profit from direct sales = paid - proportional cost
+    $realized_ds_profit = $ds_paid - $ds_realized_cost;
+    // Total realized profit
+    $realized_profit = $realized_rx_profit + $realized_ds_profit;
+
 
     // Doctor Stats
     $stmt = $conn->query("SELECT 
@@ -2351,8 +2378,22 @@ if ($uri === '/api/management/analytics' && $method === 'GET') {
         ],
         'payments' => [
             'cash_total' => (float)($pr['cash_total'] ?? 0) + (float)($ds_pr['ds_cash'] ?? 0),
-            'total_paid' => (float)($pr['paid_amount'] ?? 0) + (float)($ds_pr['ds_paid'] ?? 0),
-            'total_balance' => (float)($pr['total_balance'] ?? 0) + (float)($ds_pr['ds_balance'] ?? 0)
+            'total_paid' => $rx_paid + $ds_paid,
+            'total_balance' => $rx_balance + $ds_balance_amt
+        ],
+        'realized' => [
+            'profit'         => $realized_profit,
+            'rx_paid'        => $rx_paid,
+            'rx_balance'     => $rx_balance,
+            'rx_cost'        => $realized_rx_cost,
+            'rx_profit'      => $realized_rx_profit,
+            'rx_med_revenue' => $realized_med_rev,
+            'rx_doc_fee'     => $realized_doc_fee,
+            'rx_scan_fee'    => $realized_scan_fee,
+            'ds_paid'        => $ds_paid,
+            'ds_balance'     => $ds_balance_amt,
+            'ds_cost'        => $ds_realized_cost,
+            'ds_profit'      => $realized_ds_profit
         ],
         'financial' => $financial,
         'doctor_stats' => $doctor_stats,
